@@ -27,6 +27,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/kilip/sbctl/internal/config"
 	"github.com/kilip/sbctl/internal/gitsync"
 	"github.com/spf13/cobra"
 )
@@ -40,7 +41,15 @@ var syncCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 
-		gs := gitsync.GetGitSync()
+		cfg := config.GetConfig()
+		gs := gitsync.NewGitSync(&gitsync.Config{
+			Dir:           cfg.Vault.Dir,
+			UserName:      cfg.Vault.UserName,
+			UserEmail:     cfg.Vault.UserEmail,
+			GitRepository: cfg.Vault.GitRepository,
+			Enabled:       cfg.GitSync.Enabled,
+			Debounce:      cfg.GitSync.Debounce,
+		})
 		if err := gs.Start(ctx); err != nil {
 			os.Exit(1)
 		}

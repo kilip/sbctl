@@ -7,13 +7,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kilip/sbctl/internal/gitsync"
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	Log     LogConfig     `mapstructure:"log"`
-	Vault   VaultConfig   `mapstructure:"vault"`
-	GitSync GitSyncConfig `mapstructure:"gitsync"`
+	Log     LogConfig      `mapstructure:"log"`
+	Vault   VaultConfig    `mapstructure:"vault"`
+	GitSync gitsync.Config `mapstructure:"gitsync"`
 }
 
 var (

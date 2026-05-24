@@ -54,7 +54,15 @@ func TestVaultConfig(t *testing.T) {
 	defer os.RemoveAll(filepath.Join(testCwd, ".sbctl"))
 
 	os.Setenv("SBCTL_VAULT_DIR", "/tmp/vault")
-	defer os.Unsetenv("SBCTL_VAULT_DIR")
+	os.Setenv("SBCTL_VAULT_USER_NAME", "John Doe")
+	os.Setenv("SBCTL_VAULT_USER_EMAIL", "john@example.com")
+	os.Setenv("SBCTL_VAULT_GIT_REPOSITORY", "git@github.com:user/repo.git")
+	defer func() {
+		os.Unsetenv("SBCTL_VAULT_DIR")
+		os.Unsetenv("SBCTL_VAULT_USER_NAME")
+		os.Unsetenv("SBCTL_VAULT_USER_EMAIL")
+		os.Unsetenv("SBCTL_VAULT_GIT_REPOSITORY")
+	}()
 
 	err := initConfig("")
 	if err != nil {
@@ -64,5 +72,14 @@ func TestVaultConfig(t *testing.T) {
 	cfg := GetConfig()
 	if cfg.Vault.Dir != "/tmp/vault" {
 		t.Errorf("expected vault dir /tmp/vault, got %s", cfg.Vault.Dir)
+	}
+	if cfg.Vault.UserName != "John Doe" {
+		t.Errorf("expected vault user_name John Doe, got %s", cfg.Vault.UserName)
+	}
+	if cfg.Vault.UserEmail != "john@example.com" {
+		t.Errorf("expected vault user_email john@example.com, got %s", cfg.Vault.UserEmail)
+	}
+	if cfg.Vault.GitRepository != "git@github.com:user/repo.git" {
+		t.Errorf("expected vault git_repository git@github.com:user/repo.git, got %s", cfg.Vault.GitRepository)
 	}
 }

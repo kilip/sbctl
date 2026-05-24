@@ -10,53 +10,44 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-git/go-git/v5"
+	gconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/kilip/sbctl/internal/config"
 )
 
 type GitSync struct {
-	config *config.Config
+	config *Config
 	repo   *git.Repository
 	mu     sync.Mutex
 	timer  *time.Timer
 	logger *slog.Logger
 }
 
-var (
-	instance *GitSync
-	once     sync.Once
-)
-
-// GetGitSync returns the singleton GitSync instance.
-func GetGitSync() *GitSync {
-	once.Do(func() {
-		cfg := config.GetConfig()
-		instance = &GitSync{
-			config: cfg,
-			logger: slog.Default().With("module", "gitsync"),
-		}
-	})
-	return instance
+// NewGitSync creates a new GitSync instance with the given config.
+func NewGitSync(cfg *Config) *GitSync {
+	return &GitSync{
+		config: cfg,
+		logger: slog.Default().With("module", "gitsync"),
+	}
 }
 
-// Start begins watching the vault directory for changes.
+// Start begins watching the directory for changes.
 func (gs *GitSync) Start(ctx context.Context) error {
-	if !gs.config.GitSync.Enabled {
+	if !gs.config.Enabled {
 		gs.logger.Info("gitsync disabled")
 		return nil
 	}
 
-	vaultDir := gs.config.Vault.Dir
-	if vaultDir == "" {
-		return fmt.Errorf("vault directory not configured")
+	dir := gs.config.Dir
+	if dir == "" {
+		return fmt.Errorf("directory not configured")
 	}
 
 	// Ensure it's a git repo
-	repo, err := git.PlainOpen(vaultDir)
+	repo, err := git.PlainOpen(dir)
 	if err != nil {
 		if err == git.ErrRepositoryNotExists {
-			gs.logger.Info("initializing git repository in vault directory", "path", vaultDir)
-			repo, err = git.PlainInit(vaultDir, false)
+			gs.logger.Info("initializing git repository", "path", dir)
+			repo, err = git.PlainInit(dir, false)
 			if err != nil {
 				return fmt.Errorf("failed to init git repo: %w", err)
 			}
@@ -66,18 +57,37 @@ func (gs *GitSync) Start(ctx context.Context) error {
 	}
 	gs.repo = repo
 
+	// Handle remote
+	if gs.config.GitRepository != "" {
+		_, err = repo.Remote("origin")
+		if err != nil {
+			if err == git.ErrRemoteNotFound {
+				gs.logger.Info("adding remote origin", "url", gs.config.GitRepository)
+				_, err = repo.CreateRemote(&gconfig.RemoteConfig{
+					Name: "origin",
+					URLs: []string{gs.config.GitRepository},
+				})
+				if err != nil {
+					return fmt.Errorf("failed to create remote: %w", err)
+				}
+			} else {
+				return fmt.Errorf("failed to get remote: %w", err)
+			}
+		}
+	}
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("failed to create watcher: %w", err)
 	}
 
 	// Recursive watch
-	if err := gs.watchRecursive(watcher, vaultDir); err != nil {
+	if err := gs.watchRecursive(watcher, dir); err != nil {
 		watcher.Close()
 		return fmt.Errorf("failed to watch directory: %w", err)
 	}
 
-	gs.logger.Info("gitsync started", "path", vaultDir, "debounce", gs.config.GitSync.Debounce)
+	gs.logger.Info("gitsync started", "path", dir, "debounce", gs.config.Debounce)
 
 	go gs.watchLoop(ctx, watcher)
 
@@ -130,7 +140,7 @@ func (gs *GitSync) triggerSync() {
 		gs.timer.Stop()
 	}
 
-	gs.timer = time.AfterFunc(gs.config.GitSync.Debounce, func() {
+	gs.timer = time.AfterFunc(gs.config.Debounce, func() {
 		if err := gs.Sync(); err != nil {
 			gs.logger.Error("sync failed", "error", err)
 		}
@@ -164,10 +174,19 @@ func (gs *GitSync) Sync() error {
 		return nil
 	}
 
-	commit, err := w.Commit(fmt.Sprintf("vault sync: %s", time.Now().Format(time.RFC3339)), &git.CommitOptions{
+	name := gs.config.UserName
+	if name == "" {
+		name = "sbctl"
+	}
+	email := gs.config.UserEmail
+	if email == "" {
+		email = "sbctl@local"
+	}
+
+	commit, err := w.Commit(fmt.Sprintf("sync: %s", time.Now().Format(time.RFC3339)), &git.CommitOptions{
 		Author: &object.Signature{
-			Name:  "sbctl",
-			Email: "sbctl@local",
+			Name:  name,
+			Email: email,
 			When:  time.Now(),
 		},
 	})
@@ -177,8 +196,8 @@ func (gs *GitSync) Sync() error {
 	gs.logger.Info("committed changes", "hash", commit.String())
 
 	// TODO: git pull & push if remote is configured
-	if gs.config.GitSync.Remote != "" {
-		gs.logger.Info("pushing to remote", "remote", gs.config.GitSync.Remote)
+	if gs.config.GitRepository != "" {
+		gs.logger.Info("pushing to remote", "remote", "origin")
 		// Implement pull/push logic here
 	}
 
