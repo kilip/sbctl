@@ -7,6 +7,7 @@ import (
 
 func (c *Config) NewDaemon() *daemon.Daemon {
 	configPath := viper.ConfigFileUsed()
+	l := SetupLogger(c)
 
 	// Provider this will be called every time reload
 	provider := func() []daemon.Worker {
@@ -20,7 +21,7 @@ func (c *Config) NewDaemon() *daemon.Daemon {
 		}
 	}
 
-	return daemon.NewDaemon(provider, configPath)
+	return daemon.NewDaemon(provider, configPath, l)
 }
 
 func BootstrapDaemon() *daemon.Daemon {

@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -13,6 +14,11 @@ type slogLogger struct {
 
 // NewSlogLogger creates a new Logger implementation using slog.
 func NewSlogLogger(level string) Logger {
+	return NewSlogLoggerWithWriter(level, os.Stdout)
+}
+
+// NewSlogLoggerWithWriter creates a new Logger implementation using slog with custom writer.
+func NewSlogLoggerWithWriter(level string, w io.Writer) Logger {
 	var slogLevel slog.Level
 	switch strings.ToLower(level) {
 	case "debug":
@@ -30,7 +36,7 @@ func NewSlogLogger(level string) Logger {
 	}
 
 	// Use TextHandler for CLI, could switch to JSONHandler if needed
-	handler := slog.New(slog.NewTextHandler(os.Stdout, opts))
+	handler := slog.New(slog.NewTextHandler(w, opts))
 
 	return &slogLogger{
 		handler: *handler,

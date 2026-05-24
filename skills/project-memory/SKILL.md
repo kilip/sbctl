@@ -237,8 +237,12 @@ Periodically (every ~10 sessions or when `context.md` gets long), deduplicate pr
 | Task | Action |
 |---|---|
 | Start session | Read `context.md` + recent daily logs |
-| Log an entry | Append to `logs/YYYY-MM-DD.md` using system clock for timestamp |
+| Log an entry | Append to `logs/YYYY-MM-DD.md` (NO SHELL `>>`, use tools) |
 | Big decision | Log `DECISION` + update `context.md` if it changes stack/goals |
+| End session | Log `SESSION_END` with summary |
+| New week | Generate weekly summary |
+| New month | Generate monthly archive, prune old daily logs |
+| Repeat error | Mark as repeat, consider permanent fix |ig decision | Log `DECISION` + update `context.md` if it changes stack/goals |
 | End session | Log `SESSION_END` with summary |
 | New week | Generate weekly summary |
 | New month | Generate monthly archive, prune old daily logs |

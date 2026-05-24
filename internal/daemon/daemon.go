@@ -3,7 +3,6 @@ package daemon
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/kilip/sbctl/internal/shared/logger"
 )
 
 type WorkerProvider func() []Worker
@@ -21,16 +21,16 @@ type Daemon struct {
 	workers        []Worker
 	workerProvider WorkerProvider
 	configPath     string
-	logger         *slog.Logger
+	logger         logger.Logger
 	mu             sync.Mutex
 	cancel         context.CancelFunc
 	ctx            context.Context
 	workerCancel   context.CancelFunc
 }
 
-func NewDaemon(provider WorkerProvider, configPath string) *Daemon {
+func NewDaemon(provider WorkerProvider, configPath string, l logger.Logger) *Daemon {
 	return &Daemon{
-		logger:         slog.Default().With("module", "daemon"),
+		logger:         l.With("module", "daemon"),
 		workerProvider: provider,
 		configPath:     configPath,
 	}
@@ -40,7 +40,6 @@ func (d *Daemon) Start() error {
 	if err := d.setupLogging(); err != nil {
 		return fmt.Errorf("failed to setup logging: %w", err)
 	}
-	d.logger = slog.Default().With("module", "daemon")
 
 	d.logger.Info("starting sbctl daemon")
 
@@ -150,16 +149,13 @@ func (d *Daemon) setupLogging() error {
 	if err != nil {
 		return err
 	}
-	// Note: In a real implementation, we might want to use a multi-writer
-	// or properly configure the logger to write to this file.
-	// For simplicity, we'll assume the logger is already writing to stdout
-	// and we redirect stdout/stderr to the file if running as daemon.
+
+	// Redirect stdout/stderr to the file
 	os.Stdout = f
 	os.Stderr = f
 
-	// Set default slog logger to write to the file
-	handler := slog.NewTextHandler(f, &slog.HandlerOptions{Level: slog.LevelInfo})
-	slog.SetDefault(slog.New(handler))
+	// Update logger to write to the file
+	d.logger = logger.NewSlogLoggerWithWriter("info", f).With("module", "daemon")
 
 	return nil
 }

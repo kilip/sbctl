@@ -2,11 +2,12 @@ package daemon
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/kilip/sbctl/internal/shared/logger"
 )
 
 type mockWorker struct {
@@ -36,11 +37,9 @@ func (m *mockWorker) isStarted() bool {
 func TestDaemon_StartAndReload(t *testing.T) {
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
-	oldDefault := slog.Default()
 	defer func() {
 		os.Stdout = oldStdout
 		os.Stderr = oldStderr
-		slog.SetDefault(oldDefault)
 	}()
 
 	worker1 := &mockWorker{name: "worker1"}
@@ -53,7 +52,8 @@ func TestDaemon_StartAndReload(t *testing.T) {
 	// Use a temp file for config path
 	configPath := t.TempDir() + "/config.json"
 
-	d := NewDaemon(provider, configPath)
+	l := logger.NewSlogLogger("debug")
+	d := NewDaemon(provider, configPath, l)
 
 	// Use a context with timeout to ensure the test doesn't run forever
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
