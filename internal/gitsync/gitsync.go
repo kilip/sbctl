@@ -5,18 +5,17 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/go-git/go-git/v5"
-	gconfig "github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 type GitSync struct {
 	config *Config
-	repo   *git.Repository
 	mu     sync.Mutex
 	timer  *time.Timer
 	logger *slog.Logger
@@ -48,35 +47,24 @@ func (gs *GitSync) Start(ctx context.Context) error {
 	}
 
 	// Ensure it's a git repo
-	repo, err := git.PlainOpen(dir)
-	if err != nil {
-		if err == git.ErrRepositoryNotExists {
-			gs.logger.Info("initializing git repository", "path", dir)
-			repo, err = git.PlainInit(dir, false)
-			if err != nil {
-				return fmt.Errorf("failed to init git repo: %w", err)
-			}
-		} else {
-			return fmt.Errorf("failed to open git repo: %w", err)
+	if _, err := os.Stat(filepath.Join(dir, ".git")); os.IsNotExist(err) {
+		gs.logger.Info("initializing git repository", "path", dir)
+		if err := gs.runGit("init"); err != nil {
+			return fmt.Errorf("failed to init git repo: %w", err)
 		}
 	}
-	gs.repo = repo
 
 	// Handle remote
 	if gs.config.GitRepository != "" {
-		_, err = repo.Remote("origin")
+		remotes, err := gs.runGitOutput("remote")
 		if err != nil {
-			if err == git.ErrRemoteNotFound {
-				gs.logger.Info("adding remote origin", "url", gs.config.GitRepository)
-				_, err = repo.CreateRemote(&gconfig.RemoteConfig{
-					Name: "origin",
-					URLs: []string{gs.config.GitRepository},
-				})
-				if err != nil {
-					return fmt.Errorf("failed to create remote: %w", err)
-				}
-			} else {
-				return fmt.Errorf("failed to get remote: %w", err)
+			return fmt.Errorf("failed to check remotes: %w", err)
+		}
+
+		if !strings.Contains(remotes, "origin") {
+			gs.logger.Info("adding remote origin", "url", gs.config.GitRepository)
+			if err := gs.runGit("remote", "add", "origin", gs.config.GitRepository); err != nil {
+				return fmt.Errorf("failed to add remote: %w", err)
 			}
 		}
 	}
@@ -159,52 +147,70 @@ func (gs *GitSync) Sync() error {
 
 	gs.logger.Info("starting sync")
 
-	w, err := gs.repo.Worktree()
-	if err != nil {
-		return err
-	}
-
 	// git add .
-	if err := w.AddWithOptions(&git.AddOptions{All: true}); err != nil {
+	if err := gs.runGit("add", "."); err != nil {
 		return fmt.Errorf("git add failed: %w", err)
 	}
 
-	// git commit
-	status, err := w.Status()
+	// check status
+	status, err := gs.runGitOutput("status", "--porcelain")
 	if err != nil {
-		return err
-	}
-	if status.IsClean() {
-		gs.logger.Info("nothing to commit, sync skipped")
-		return nil
+		return fmt.Errorf("git status failed: %w", err)
 	}
 
-	name := gs.config.UserName
-	if name == "" {
-		name = "sbctl"
-	}
-	email := gs.config.UserEmail
-	if email == "" {
-		email = "sbctl@local"
+	if status != "" {
+		msg := fmt.Sprintf("sync: %s", time.Now().Format(time.RFC3339))
+		// git commit -m msg --allow-empty (allow-empty just in case, but porcelain should catch it)
+		// We use -S for auto-signing if configured in git global config
+		if err := gs.runGit("commit", "-m", msg); err != nil {
+			return fmt.Errorf("git commit failed: %w", err)
+		}
+		gs.logger.Info("committed changes")
+	} else {
+		gs.logger.Info("nothing to commit, checking remote")
 	}
 
-	commit, err := w.Commit(fmt.Sprintf("sync: %s", time.Now().Format(time.RFC3339)), &git.CommitOptions{
-		Author: &object.Signature{
-			Name:  name,
-			Email: email,
-			When:  time.Now(),
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("git commit failed: %w", err)
-	}
-	gs.logger.Info("committed changes", "hash", commit.String())
-
-	// TODO: git pull & push if remote is configured
+	// git pull --rebase & push if remote is configured
 	if gs.config.GitRepository != "" {
-		gs.logger.Info("pushing to remote", "remote", "origin")
-		// Implement pull/push logic here
+		branch, err := gs.runGitOutput("rev-parse", "--abbrev-ref", "HEAD")
+		if err != nil {
+			return fmt.Errorf("failed to get branch: %w", err)
+		}
+		branch = strings.TrimSpace(branch)
+
+		gs.logger.Info("syncing with remote", "remote", "origin", "branch", branch)
+
+		// Pull with rebase
+		if err := gs.runGit("pull", "--rebase", "origin", branch); err != nil {
+			return fmt.Errorf("git pull --rebase failed: %w (check for conflicts)", err)
+		}
+		gs.logger.Info("pulled from remote", "branch", branch)
+
+		// Push
+		if err := gs.runGit("push", "origin", branch); err != nil {
+			return fmt.Errorf("git push failed: %w", err)
+		}
+		gs.logger.Info("pushed to remote", "branch", branch)
 	}
 
 	return nil
+}
+
+func (gs *GitSync) runGit(args ...string) error {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = gs.config.Dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git %s failed: %w\nOutput: %s", args[0], err, string(out))
+	}
+	return nil
+}
+
+func (gs *GitSync) runGitOutput(args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = gs.config.Dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("git %s failed: %w\nOutput: %s", args[0], err, string(out))
+	}
+	return strings.TrimSpace(string(out)), nil
 }
