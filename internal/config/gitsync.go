@@ -18,3 +18,7 @@ func gitsyncDefaults() {
 func (c *Config) GetGitSync() daemon.Worker {
 	return gitsync.NewGitSync(&c.GitSync)
 }
+
+func (c *Config) GetGitSyncSSH() error {
+	return gitsync.ConfigureSSH(c.ConfigDir, c.Vault.Dir, c.Vault.UserEmail)
+}

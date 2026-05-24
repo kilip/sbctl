@@ -96,19 +96,16 @@ Then log session start:
 
 ### 3. Appending to Daily Log
 
-```bash
-mkdir -p .agents/project/logs
-LOG_FILE=".agents/project/logs/$(date +%Y-%m-%d).md"
+**CRITICAL RULE FOR LOGGING:** You MUST NOT use shell commands like `echo >>` to write to logs. You MUST use your internal file editing tools (`read_file`, `write_file`, `replace`).
 
-# Create file with header if new day
-if [ ! -f "$LOG_FILE" ]; then
-  echo "# Log $(date +%Y-%m-%d)" >> "$LOG_FILE"
-  echo "" >> "$LOG_FILE"
-fi
+To safely append a log entry:
+1. **Always `read_file` first** to get the existing content of `.agents/project/logs/YYYY-MM-DD.md`.
+2. Append your new entry to the bottom of the loaded content in your memory.
+3. Use `write_file` to write the combined, updated content back to the file.
 
-# Append entry
-echo "- [$(date '+%Y-%m-%d %H:%M')] [TYPE] Description" >> "$LOG_FILE"
-```
+Example process:
+- If file doesn't exist, create it with `write_file` starting with `# Log YYYY-MM-DD\n\n`.
+- If it exists, append `- [YYYY-MM-DD HH:MM] [TYPE] Description` to the end of the existing text.
 
 ### 4. Updating context.md
 

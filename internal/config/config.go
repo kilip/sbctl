@@ -12,9 +12,10 @@ import (
 )
 
 type Config struct {
-	Log     LogConfig      `mapstructure:"log"`
-	Vault   VaultConfig    `mapstructure:"vault"`
-	GitSync gitsync.Config `mapstructure:"gitsync"`
+	ConfigDir string         `mapstructure:"-"`
+	Log       LogConfig      `mapstructure:"log"`
+	Vault     VaultConfig    `mapstructure:"vault"`
+	GitSync   gitsync.Config `mapstructure:"gitsync"`
 }
 
 var (
@@ -111,6 +112,8 @@ func initConfig(cfgFile string) error {
 	if err := viper.Unmarshal(instance); err != nil {
 		return fmt.Errorf("error unmarshaling config: %w", err)
 	}
+
+	instance.ConfigDir = filepath.Dir(configPath)
 
 	return nil
 }
