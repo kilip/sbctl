@@ -1,0 +1,51 @@
+version: '3'
+
+vars:
+  BINARY_NAME: sbctl
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list
+
+  setup:
+    desc: Install required tools and setup git hooks
+    cmds:
+      - go install github.com/evilmartians/lefthook@latest
+      - go install github.com/conventionalcommit/commitlint@latest
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - lefthook install
+      - echo "Setup complete. Tools installed and git hooks synchronized."
+
+  fmt:
+    desc: Format the code
+    cmds:
+      - go fmt ./...
+
+  tidy:
+    desc: Tidy go modules
+    cmds:
+      - go mod tidy
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test -v -race ./...
+
+  build:
+    desc: Build the binary
+    cmds:
+      - go build -o bin/{{.BINARY_NAME}} cmd/sbctl/main.go
+
+  fix:
+    desc: Run all formatting and tidying tasks
+    cmds:
+      - task: fmt
+      - task: tidy
+      - task: lint

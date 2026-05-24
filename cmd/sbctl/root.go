@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
+var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -44,6 +44,11 @@ func Execute() {
 }
 
 func init() {
+	cobra.OnInitialize(initConfig)
+
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.sbctl/config.json)")
 }
 
-
+func initConfig() {
+	// Config is initialized on-demand via GetConfig()
+}
