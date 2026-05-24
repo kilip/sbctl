@@ -24,9 +24,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/kilip/sbctl/internal/daemon"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // serviceCmd represents the service command
@@ -36,11 +38,17 @@ var serviceCmd = &cobra.Command{
 	Long:  `Install, uninstall, start, stop, and view logs of the sbctl background service.`,
 }
 
+func getManager() (*daemon.Manager, error) {
+	configFile := viper.ConfigFileUsed()
+	configDir := filepath.Dir(configFile)
+	return daemon.NewManager(configDir, configFile)
+}
+
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install the sbctl service",
 	Run: func(cmd *cobra.Command, args []string) {
-		m, err := daemon.NewManager()
+		m, err := getManager()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -57,7 +65,7 @@ var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
 	Short: "Uninstall the sbctl service",
 	Run: func(cmd *cobra.Command, args []string) {
-		m, err := daemon.NewManager()
+		m, err := getManager()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -74,7 +82,7 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the sbctl service",
 	Run: func(cmd *cobra.Command, args []string) {
-		m, err := daemon.NewManager()
+		m, err := getManager()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -90,7 +98,7 @@ var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop the sbctl service",
 	Run: func(cmd *cobra.Command, args []string) {
-		m, err := daemon.NewManager()
+		m, err := getManager()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -106,7 +114,7 @@ var logsCmd = &cobra.Command{
 	Use:   "logs",
 	Short: "View service logs",
 	Run: func(cmd *cobra.Command, args []string) {
-		m, err := daemon.NewManager()
+		m, err := getManager()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

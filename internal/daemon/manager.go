@@ -12,11 +12,13 @@ import (
 
 // Manager handles service operations (install, uninstall, start, stop, logs).
 type Manager struct {
-	platform PlatformManager
+	platform   PlatformManager
+	configDir  string
+	configFile string
 }
 
 // NewManager creates a new service manager based on the current OS.
-func NewManager() (*Manager, error) {
+func NewManager(configDir string, configFile string) (*Manager, error) {
 	var pm PlatformManager
 	switch runtime.GOOS {
 	case "linux":
@@ -29,7 +31,11 @@ func NewManager() (*Manager, error) {
 		return nil, fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
 
-	return &Manager{platform: pm}, nil
+	return &Manager{
+		platform:   pm,
+		configDir:  configDir,
+		configFile: configFile,
+	}, nil
 }
 
 func (m *Manager) Install() error {
@@ -55,7 +61,7 @@ func (m *Manager) Stop() error {
 }
 
 func (m *Manager) Logs() error {
-	logPath := filepath.Join(getConfigDir(), "sbctl.log")
+	logPath := filepath.Join(m.configDir, "sbctl.log")
 	// Simple tail implementation
 	cmd := exec.Command("tail", "-f", logPath)
 	if runtime.GOOS == "windows" {
@@ -69,7 +75,7 @@ func (m *Manager) Logs() error {
 }
 
 func (m *Manager) startProcess() error {
-	pidPath := filepath.Join(getConfigDir(), "sbctl.pid")
+	pidPath := filepath.Join(m.configDir, "sbctl.pid")
 	if b, _ := os.ReadFile(pidPath); len(b) > 0 {
 		pid, _ := strconv.Atoi(string(b))
 		if proc, err := os.FindProcess(pid); err == nil {
@@ -81,7 +87,11 @@ func (m *Manager) startProcess() error {
 	}
 
 	binPath, _ := os.Executable()
-	cmd := exec.Command(binPath, "daemon")
+	args := []string{"daemon"}
+	if m.configFile != "" {
+		args = append(args, "--config", m.configFile)
+	}
+	cmd := exec.Command(binPath, args...)
 	cmd.Stdout = nil // Will be handled by daemon's setupLogging
 	cmd.Stderr = nil
 	if err := cmd.Start(); err != nil {
@@ -93,7 +103,7 @@ func (m *Manager) startProcess() error {
 }
 
 func (m *Manager) stopProcess() error {
-	pidPath := filepath.Join(getConfigDir(), "sbctl.pid")
+	pidPath := filepath.Join(m.configDir, "sbctl.pid")
 	b, err := os.ReadFile(pidPath)
 	if err != nil {
 		return fmt.Errorf("service is not running (no PID file)")
@@ -121,9 +131,4 @@ func (m *Manager) stopProcess() error {
 	_ = os.Remove(pidPath)
 	fmt.Printf("Service (PID: %d) stopped\n", pid)
 	return nil
-}
-
-func getConfigDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".sbctl")
 }

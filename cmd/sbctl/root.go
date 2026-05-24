@@ -22,8 +22,10 @@ THE SOFTWARE.
 package main
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/kilip/sbctl/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -50,5 +52,8 @@ func init() {
 }
 
 func initConfig() {
-	// Config is initialized on-demand via GetConfig()
+	if err := config.Init(cfgFile); err != nil {
+		fmt.Printf("Error initializing config: %v\n", err)
+		os.Exit(1)
+	}
 }

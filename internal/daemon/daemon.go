@@ -13,35 +13,40 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/kilip/sbctl/internal/config"
-	"github.com/kilip/sbctl/internal/gitsync"
 )
 
+type WorkerProvider func() []Worker
+
 type Daemon struct {
-	workers []Worker
-	logger  *slog.Logger
-	mu      sync.Mutex
-	cancel  context.CancelFunc
-	ctx     context.Context
+	workers        []Worker
+	workerProvider WorkerProvider
+	configPath     string
+	logger         *slog.Logger
+	mu             sync.Mutex
+	cancel         context.CancelFunc
+	ctx            context.Context
 }
 
-func NewDaemon() *Daemon {
+func NewDaemon(provider WorkerProvider, configPath string) *Daemon {
 	return &Daemon{
-		logger: slog.Default().With("module", "daemon"),
+		logger:         slog.Default().With("module", "daemon"),
+		workerProvider: provider,
+		configPath:     configPath,
 	}
 }
 
 func (d *Daemon) Start() error {
+	if err := d.setupLogging(); err != nil {
+		return fmt.Errorf("failed to setup logging: %w", err)
+	}
+	d.logger = slog.Default().With("module", "daemon")
+
 	d.logger.Info("starting sbctl daemon")
 
 	if err := d.writePID(); err != nil {
 		return fmt.Errorf("failed to write PID: %w", err)
 	}
 	defer d.removePID()
-
-	if err := d.setupLogging(); err != nil {
-		return fmt.Errorf("failed to setup logging: %w", err)
-	}
 
 	d.ctx, d.cancel = context.WithCancel(context.Background())
 	defer d.cancel()
@@ -76,11 +81,7 @@ func (d *Daemon) reloadWorkers() {
 	}
 	d.ctx, d.cancel = context.WithCancel(context.Background())
 
-	cfg := config.GetConfig()
-	d.workers = []Worker{
-		gitsync.NewGitSync(&cfg.GitSync),
-		// Add other workers here as they are implemented
-	}
+	d.workers = d.workerProvider()
 
 	for _, w := range d.workers {
 		d.logger.Info("starting worker", "name", w.Name())
@@ -100,13 +101,12 @@ func (d *Daemon) watchConfig() {
 	}
 	defer watcher.Close()
 
-	configPath := d.getConfigFilePath()
-	if err := watcher.Add(filepath.Dir(configPath)); err != nil {
+	if err := watcher.Add(filepath.Dir(d.configPath)); err != nil {
 		d.logger.Error("failed to watch config directory", "error", err)
 		return
 	}
 
-	d.logger.Info("watching config for changes", "path", configPath)
+	d.logger.Info("watching config for changes", "path", d.configPath)
 
 	for {
 		select {
@@ -114,7 +114,7 @@ func (d *Daemon) watchConfig() {
 			if !ok {
 				return
 			}
-			if event.Name == configPath && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
+			if event.Name == d.configPath && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
 				d.logger.Info("config change detected, reloading workers")
 				// Debounce reload
 				time.Sleep(500 * time.Millisecond)
@@ -132,18 +132,18 @@ func (d *Daemon) watchConfig() {
 }
 
 func (d *Daemon) writePID() error {
-	pidPath := filepath.Join(getConfigDir(), "sbctl.pid")
+	pidPath := filepath.Join(filepath.Dir(d.configPath), "sbctl.pid")
 	pid := os.Getpid()
 	return os.WriteFile(pidPath, []byte(strconv.Itoa(pid)), 0644)
 }
 
 func (d *Daemon) removePID() {
-	pidPath := filepath.Join(getConfigDir(), "sbctl.pid")
+	pidPath := filepath.Join(filepath.Dir(d.configPath), "sbctl.pid")
 	_ = os.Remove(pidPath)
 }
 
 func (d *Daemon) setupLogging() error {
-	logPath := filepath.Join(getConfigDir(), "sbctl.log")
+	logPath := filepath.Join(filepath.Dir(d.configPath), "sbctl.log")
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -154,11 +154,10 @@ func (d *Daemon) setupLogging() error {
 	// and we redirect stdout/stderr to the file if running as daemon.
 	os.Stdout = f
 	os.Stderr = f
-	return nil
-}
 
-func (d *Daemon) getConfigFilePath() string {
-	// Logic similar to config.initConfig()
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".sbctl", "config.json")
+	// Set default slog logger to write to the file
+	handler := slog.NewTextHandler(f, &slog.HandlerOptions{Level: slog.LevelInfo})
+	slog.SetDefault(slog.New(handler))
+
+	return nil
 }

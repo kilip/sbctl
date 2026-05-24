@@ -22,6 +22,11 @@ var (
 	once     sync.Once
 )
 
+// Init initializes the configuration with the given file path.
+func Init(cfgFile string) error {
+	return initConfig(cfgFile)
+}
+
 // GetConfig returns the global configuration singleton.
 func GetConfig() *Config {
 	once.Do(func() {

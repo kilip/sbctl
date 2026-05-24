@@ -41,7 +41,7 @@ tasks:
   build:
     desc: Build the binary
     cmds:
-      - go build -o bin/{{.BINARY_NAME}} cmd/sbctl/main.go
+      - go build -o bin/{{.BINARY_NAME}} ./cmd/sbctl
 
   fix:
     desc: Run all formatting and tidying tasks

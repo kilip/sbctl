@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kilip/sbctl/internal/daemon"
+	"github.com/kilip/sbctl/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +35,7 @@ var daemonCmd = &cobra.Command{
 	Short: "Run the sbctl background workers",
 	Long:  `Internal command to start the background workers. Not intended for manual use.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		d := daemon.NewDaemon()
+		d := config.BootstrapDaemon()
 		if err := d.Start(); err != nil {
 			fmt.Printf("Daemon error: %v\n", err)
 			os.Exit(1)
