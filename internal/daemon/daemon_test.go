@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"sync"
 	"testing"
 	"time"
 )
@@ -11,6 +12,7 @@ import (
 type mockWorker struct {
 	name    string
 	started bool
+	mu      sync.Mutex
 }
 
 func (m *mockWorker) Name() string {
@@ -18,9 +20,17 @@ func (m *mockWorker) Name() string {
 }
 
 func (m *mockWorker) Start(ctx context.Context) error {
+	m.mu.Lock()
 	m.started = true
+	m.mu.Unlock()
 	<-ctx.Done()
 	return nil
+}
+
+func (m *mockWorker) isStarted() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.started
 }
 
 func TestDaemon_StartAndReload(t *testing.T) {
@@ -58,10 +68,10 @@ func TestDaemon_StartAndReload(t *testing.T) {
 	// Wait for workers to start
 	time.Sleep(100 * time.Millisecond)
 
-	if !worker1.started {
+	if !worker1.isStarted() {
 		t.Error("worker1 was not started")
 	}
-	if !worker2.started {
+	if !worker2.isStarted() {
 		t.Error("worker2 was not started")
 	}
 

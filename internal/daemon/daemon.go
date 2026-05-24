@@ -25,6 +25,7 @@ type Daemon struct {
 	mu             sync.Mutex
 	cancel         context.CancelFunc
 	ctx            context.Context
+	workerCancel   context.CancelFunc
 }
 
 func NewDaemon(provider WorkerProvider, configPath string) *Daemon {
@@ -76,17 +77,18 @@ func (d *Daemon) reloadWorkers() {
 	defer d.mu.Unlock()
 
 	// Stop existing workers by cancelling context
-	if d.cancel != nil {
-		d.cancel()
+	if d.workerCancel != nil {
+		d.workerCancel()
 	}
-	d.ctx, d.cancel = context.WithCancel(context.Background())
+	var workerCtx context.Context
+	workerCtx, d.workerCancel = context.WithCancel(d.ctx)
 
 	d.workers = d.workerProvider()
 
 	for _, w := range d.workers {
 		d.logger.Info("starting worker", "name", w.Name())
 		go func(worker Worker) {
-			if err := worker.Start(d.ctx); err != nil {
+			if err := worker.Start(workerCtx); err != nil {
 				d.logger.Error("worker failed", "name", worker.Name(), "error", err)
 			}
 		}(w)
