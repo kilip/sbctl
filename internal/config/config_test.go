@@ -47,3 +47,22 @@ func TestInitConfig_Env(t *testing.T) {
 		t.Errorf("expected LogLevel debug, got %s", GetConfig().Log.Level)
 	}
 }
+
+func TestVaultConfig(t *testing.T) {
+	viper.Reset()
+	testCwd, _ := os.Getwd()
+	defer os.RemoveAll(filepath.Join(testCwd, ".sbctl"))
+
+	os.Setenv("SBCTL_VAULT_DIR", "/tmp/vault")
+	defer os.Unsetenv("SBCTL_VAULT_DIR")
+
+	err := initConfig("")
+	if err != nil {
+		t.Fatalf("initConfig failed: %v", err)
+	}
+
+	cfg := GetConfig()
+	if cfg.Vault.Dir != "/tmp/vault" {
+		t.Errorf("expected vault dir /tmp/vault, got %s", cfg.Vault.Dir)
+	}
+}

@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/kilip/sbctl/internal/shared/logger"
+	"github.com/spf13/viper"
 )
 
 type LogLevel string
@@ -16,6 +17,12 @@ const (
 type LogConfig struct {
 	Level   LogLevel `mapstructure:"level"`
 	Adapter string   `mapstructure:"adapter"`
+}
+
+// loggerDefaults sets the default configuration for the logger.
+func loggerDefaults() {
+	viper.SetDefault("log.level", "info")
+	viper.SetDefault("log.adapter", "slog")
 }
 
 // SetupLogger initializes the logger based on the application configuration.

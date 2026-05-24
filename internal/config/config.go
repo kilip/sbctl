@@ -11,7 +11,9 @@ import (
 )
 
 type Config struct {
-	Log LogConfig `mapstructure:"log"`
+	Log     LogConfig     `mapstructure:"log"`
+	Vault   VaultConfig   `mapstructure:"vault"`
+	GitSync GitSyncConfig `mapstructure:"gitsync"`
 }
 
 var (
@@ -47,6 +49,12 @@ func isDevMode() bool {
 	return false
 }
 
+func initDefaults() {
+	loggerDefaults()
+	vaultDefaults()
+	gitsyncDefaults()
+}
+
 func initConfig(cfgFile string) error {
 	var configPath string
 	if cfgFile != "" {
@@ -77,9 +85,8 @@ func initConfig(cfgFile string) error {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 	viper.AutomaticEnv()
 
-	// Set defaults to ensure environment variables are picked up during Unmarshal
-	viper.SetDefault("log.level", "info")
-	viper.SetDefault("log.adapter", "slog")
+	// Set defaults
+	initDefaults()
 
 	if err := viper.ReadInConfig(); err != nil {
 		// If config file is not found, ignore the error
