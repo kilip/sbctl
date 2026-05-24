@@ -1,0 +1,128 @@
+/*
+Copyright © 2026 Anthonius
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/kilip/sbctl/internal/daemon"
+	"github.com/spf13/cobra"
+)
+
+// serviceCmd represents the service command
+var serviceCmd = &cobra.Command{
+	Use:   "service",
+	Short: "Manage sbctl background service",
+	Long:  `Install, uninstall, start, stop, and view logs of the sbctl background service.`,
+}
+
+var installCmd = &cobra.Command{
+	Use:   "install",
+	Short: "Install the sbctl service",
+	Run: func(cmd *cobra.Command, args []string) {
+		m, err := daemon.NewManager()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		if err := m.Install(); err != nil {
+			fmt.Printf("Failed to install service: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Service installed successfully")
+	},
+}
+
+var uninstallCmd = &cobra.Command{
+	Use:   "uninstall",
+	Short: "Uninstall the sbctl service",
+	Run: func(cmd *cobra.Command, args []string) {
+		m, err := daemon.NewManager()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		if err := m.Uninstall(); err != nil {
+			fmt.Printf("Failed to uninstall service: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Service uninstalled successfully")
+	},
+}
+
+var startCmd = &cobra.Command{
+	Use:   "start",
+	Short: "Start the sbctl service",
+	Run: func(cmd *cobra.Command, args []string) {
+		m, err := daemon.NewManager()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		if err := m.Start(); err != nil {
+			fmt.Printf("Failed to start service: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+var stopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "Stop the sbctl service",
+	Run: func(cmd *cobra.Command, args []string) {
+		m, err := daemon.NewManager()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		if err := m.Stop(); err != nil {
+			fmt.Printf("Failed to stop service: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+var logsCmd = &cobra.Command{
+	Use:   "logs",
+	Short: "View service logs",
+	Run: func(cmd *cobra.Command, args []string) {
+		m, err := daemon.NewManager()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		if err := m.Logs(); err != nil {
+			fmt.Printf("Error viewing logs: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(serviceCmd)
+	serviceCmd.AddCommand(installCmd)
+	serviceCmd.AddCommand(uninstallCmd)
+	serviceCmd.AddCommand(startCmd)
+	serviceCmd.AddCommand(stopCmd)
+	serviceCmd.AddCommand(logsCmd)
+}

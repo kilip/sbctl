@@ -30,6 +30,11 @@ func NewGitSync(cfg *Config) *GitSync {
 	}
 }
 
+// Name returns the name of the worker.
+func (gs *GitSync) Name() string {
+	return "gitsync"
+}
+
 // Start begins watching the directory for changes.
 func (gs *GitSync) Start(ctx context.Context) error {
 	if !gs.config.Enabled {
