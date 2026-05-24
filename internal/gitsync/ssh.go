@@ -66,6 +66,19 @@ func ConfigureSSH(configDir, vaultDir, userEmail string) error {
 		fmt.Println("Successfully uploaded SSH key to GitHub.")
 	}
 
+	fmt.Printf("Uploading SSH signing key to GitHub with title '%s'...\n", title+"-signing")
+	ghSigningCmd := exec.Command("gh", "ssh-key", "add", pubKeyPath, "--title", title+"-signing", "--type", "signing")
+	if out, err := ghSigningCmd.CombinedOutput(); err != nil {
+		outStr := string(out)
+		if strings.Contains(outStr, "already in use") || strings.Contains(outStr, "already exists") {
+			fmt.Println("Warning: SSH signing key already exists in GitHub account.")
+		} else {
+			return fmt.Errorf("failed to upload ssh signing key: %w\n%s", err, outStr)
+		}
+	} else {
+		fmt.Println("Successfully uploaded SSH signing key to GitHub.")
+	}
+
 	// 5. Configure local git repository
 	fmt.Printf("Configuring local git repository in %s...\n", vaultDir)
 
@@ -80,13 +93,22 @@ func ConfigureSSH(configDir, vaultDir, userEmail string) error {
 	}
 
 	sshCommand := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", keyPath)
-	gitCfgCmd := exec.Command("git", "config", "core.sshCommand", sshCommand)
-	gitCfgCmd.Dir = vaultDir
-	if out, err := gitCfgCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to configure git core.sshCommand: %w\n%s", err, string(out))
+	configs := [][]string{
+		{"core.sshCommand", sshCommand},
+		{"gpg.format", "ssh"},
+		{"user.signingkey", pubKeyPath},
+		{"commit.gpgsign", "true"},
 	}
 
-	fmt.Println("Successfully configured vault repository to use custom SSH key.")
+	for _, cfg := range configs {
+		gitCfgCmd := exec.Command("git", "config", cfg[0], cfg[1])
+		gitCfgCmd.Dir = vaultDir
+		if out, err := gitCfgCmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to configure git %s: %w\n%s", cfg[0], err, string(out))
+		}
+	}
+
+	fmt.Println("Successfully configured vault repository to use custom SSH key and signing.")
 	return nil
 }
 

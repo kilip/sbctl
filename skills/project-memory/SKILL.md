@@ -28,8 +28,10 @@ cwd/
 All entries in daily logs follow this format:
 
 ```
-- [YYYY-MM-DD HH:MM] [TYPE] Description
+- [YYYY-MM-DD HH:MM:SS] [TYPE] Description
 ```
+
+Use the **current local datetime from system clock** for all timestamps. Format: `YYYY-MM-DD HH:MM:SS`.
 
 **Entry Types:**
 | Type | When to use |
@@ -44,31 +46,24 @@ All entries in daily logs follow this format:
 | `SESSION_END` | End of session with summary |
 | `MILESTONE` | Task or feature completed |
 
+---
+
 ## Workflow
 
 ### 1. Session Start
 
-When starting a new session, always:
+When starting a new session:
 
-```bash
-# Check if project memory exists
-ls cwd/.agents/project/
-
-# Load context
-cat .agents/project/context.md
-
-# Load recent logs (last 3 days)
-cat .agents/project/logs/YYYY-MM-DD.md  # today
-cat .agents/project/logs/YYYY-MM-DD.md  # yesterday
-cat .agents/project/logs/YYYY-MM-DD.md  # day before
-```
+1. Check if `.agents/project/` exists
+2. If it exists, read `context.md` and recent daily logs (last few sessions worth)
+3. If it doesn't exist, initialize it (see **Auto-detect project init** below)
 
 Then log session start:
 ```
-- [2025-05-24 09:00] [SESSION_START] Resumed project. Loaded context: <brief summary of what you learned>
+- [YYYY-MM-DD HH:MM:SS] [SESSION_START] Resumed project. Loaded context: <brief summary of what you learned>
 ```
 
-- **ALWAYS** verify `.agents/project` is listed in `.gitignore`, if not listed then add `.agents/project` to `.gitignore`
+**ALWAYS** verify `.agents/project` is excluded from version control (e.g. listed in `.gitignore`). If not, add it.
 
 ### 2. During Session — What to Log
 
@@ -88,24 +83,21 @@ Then log session start:
 **How to write a good log entry:**
 ```
 # Good — specific, with rationale
-- [2025-05-24 10:15] [DECISION] Chose PostgreSQL over SQLite — project needs concurrent writes from multiple workers
+- [2025-05-24 10:15:42] [DECISION] Chose PostgreSQL over SQLite — project needs concurrent writes from multiple workers
 
 # Bad — vague
-- [2025-05-24 10:15] [DECISION] Chose a database
+- [2025-05-24 10:15:42] [DECISION] Chose a database
 ```
 
 ### 3. Appending to Daily Log
 
-**CRITICAL RULE FOR LOGGING:** You MUST NOT use shell commands like `echo >>` to write to logs. You MUST use your internal file editing tools (`read_file`, `write_file`, `replace`).
-
 To safely append a log entry:
-1. **Always `read_file` first** to get the existing content of `.agents/project/logs/YYYY-MM-DD.md`.
-2. Append your new entry to the bottom of the loaded content in your memory.
-3. Use `write_file` to write the combined, updated content back to the file.
+1. Read the existing content of `.agents/project/logs/YYYY-MM-DD.md`
+2. If the file doesn't exist, create it with a header: `# Log YYYY-MM-DD`
+3. Append the new entry at the bottom
+4. Write the updated content back to the file
 
-Example process:
-- If file doesn't exist, create it with `write_file` starting with `# Log YYYY-MM-DD\n\n`.
-- If it exists, append `- [YYYY-MM-DD HH:MM] [TYPE] Description` to the end of the existing text.
+**Do not use shell append commands** (e.g. `echo >>`). Use your file read/write tools directly.
 
 ### 4. Updating context.md
 
@@ -114,8 +106,8 @@ Example process:
 Update it when:
 - Project goals change
 - Stack or architecture changes significantly
-- Major milestone reached
-- User preferences pile up
+- A major milestone is reached
+- User preferences accumulate
 
 **Template:**
 ```markdown
@@ -144,23 +136,18 @@ Update it when:
 
 Before ending, log a session summary:
 ```
-- [2025-05-24 17:30] [SESSION_END] Completed: X, Y. Pending: Z. Next: <suggested next step>
+- [YYYY-MM-DD HH:MM:SS] [SESSION_END] Completed: X, Y. Pending: Z. Next: <suggested next step>
 ```
 
 ---
 
 ## Weekly Summary
 
-Generate every Monday (or when 7 days of logs exist). Read the week's daily logs and distill what matters.
+Generate at the start of each new week, or when a full week of logs has accumulated. Read that week's daily logs and distill what matters.
 
 **File:** `.agents/project/logs/YYYY-Www.md` (e.g. `2025-W21.md`)
 
-```bash
-# Read the week's logs
-for i in 0 1 2 3 4 5 6; do
-  date -d "-$i days" +%Y-%m-%d 2>/dev/null || date -v-${i}d +%Y-%m-%d
-done
-```
+Read each day's log file for the past 7 days and summarize them.
 
 **Weekly summary format:**
 ```markdown
@@ -188,13 +175,11 @@ Keep it to ~30 lines max. Skip days with nothing significant.
 
 ## Monthly Archive
 
-Run at end of each month (or first session of new month).
+Run at end of each month, or at the first session of a new month.
 
 **File:** `.agents/project/archive/YYYY/MM.md` (e.g. `archive/2025/05.md`)
 
-```bash
-mkdir -p .agents/project/archive/$(date +%Y)
-```
+Create the archive directory if it doesn't exist, then write the file.
 
 **Monthly archive format:**
 ```markdown
@@ -216,57 +201,34 @@ mkdir -p .agents/project/archive/$(date +%Y)
 - <Stable user preferences and project conventions>
 ```
 
-After archiving, **prune daily logs** older than the archived month to keep `.agents/project/logs/` clean.
+After archiving, prune daily logs older than the archived month to keep `.agents/project/logs/` clean.
 
 ---
 
 ## Additional Important Behaviors
 
 ### Auto-detect project init
+
 If `.agents/project/` doesn't exist when a new project starts:
 
-```bash
-mkdir -p .agents/project/logs
-mkdir -p .agents/project/archive
-
-cat > .agents/project/context.md << 'EOF'
-# Project Context
-
-## What This Is
-<fill in>
-
-## Current State
-Freshly initialized.
-
-## Stack
-<fill in>
-
-## User Preferences
-<none yet>
-
-## Active TODOs
-<fill in>
-
-## Last Updated
-YYYY-MM-DD
-EOF
-
-echo "- [$(date '+%Y-%m-%d %H:%M')] [SESSION_START] Project memory initialized." >> .agents/project/logs/$(date +%Y-%m-%d).md
-```
-
-**ALWAYS**: Ensure `.agents/project` is added to `.gitignore`.
+1. Create the directory structure:
+   - `.agents/project/logs/`
+   - `.agents/project/archive/`
+2. Create `.agents/project/context.md` using the template above, with "Freshly initialized" as the current state
+3. Create today's log file and add a `SESSION_START` entry: `Project memory initialized.`
+4. Ensure `.agents/project` is excluded from version control
 
 Then ask the user: *"Project memory initialized. What's this project about?"* and fill in `context.md`.
 
 ### Error pattern tracking
-When logging an `ERROR` + `FIX` pair, also check if the same error appeared in recent logs:
-```bash
-grep "ERROR.*<keyword>" .agents/project/logs/*.md
-```
-If it's a repeat, note it: `[ERROR] (repeat #2) ...` — repeated errors should trigger a `DECISION` entry about a permanent fix.
+
+When logging an `ERROR` + `FIX` pair, also scan recent log files for the same error keyword. If it's a repeat, note it: `[ERROR] (repeat #2) ...`
+
+Repeated errors should trigger a `DECISION` entry about a permanent fix.
 
 ### Preference consolidation
-Periodically (every ~10 sessions or when context.md gets long), deduplicate preferences in `context.md`. Remove outdated ones, merge similar ones.
+
+Periodically (every ~10 sessions or when `context.md` gets long), deduplicate preferences. Remove outdated ones, merge similar ones.
 
 ---
 
@@ -274,10 +236,10 @@ Periodically (every ~10 sessions or when context.md gets long), deduplicate pref
 
 | Task | Action |
 |---|---|
-| Start session | Read `context.md` + last 3 daily logs |
-| Log an entry | Append to `logs/YYYY-MM-DD.md` |
-| Big decision | Log `DECISION` + update `context.md` if it changes the stack/goals |
+| Start session | Read `context.md` + recent daily logs |
+| Log an entry | Append to `logs/YYYY-MM-DD.md` using system clock for timestamp |
+| Big decision | Log `DECISION` + update `context.md` if it changes stack/goals |
 | End session | Log `SESSION_END` with summary |
-| Every Monday | Generate weekly summary |
+| New week | Generate weekly summary |
 | New month | Generate monthly archive, prune old daily logs |
 | Repeat error | Mark as repeat, consider permanent fix |

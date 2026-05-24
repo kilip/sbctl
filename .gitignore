@@ -1,3 +1,12 @@
 /sbctl
 .sbctl
+.vault
 /bin
+
+# Go
+vendor/
+*.test
+*.out
+
+# Agents & Project Memory
+.agents/
