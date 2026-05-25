@@ -49,11 +49,11 @@ func RunWizard() error {
 	cfg := GetConfig()
 
 	var (
-		vaultDir       string = cfg.Vault.Dir
-		userName       string = cfg.Vault.UserName
-		userEmail      string = cfg.Vault.UserEmail
-		gitRepository  string = cfg.Vault.GitRepository
-		gitEnabled     bool   = cfg.GitSync.Enabled
+		vaultDir       = cfg.Vault.Dir
+		userName       = cfg.Vault.UserName
+		userEmail      = cfg.Vault.UserEmail
+		gitRepository  = cfg.Vault.GitRepository
+		gitEnabled     = cfg.GitSync.Enabled
 		installService bool
 	)
 

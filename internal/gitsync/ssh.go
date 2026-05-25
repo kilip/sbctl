@@ -129,7 +129,7 @@ func generateEd25519Key(privateKeyPath, publicKeyPath, comment string) error {
 	if err != nil {
 		return err
 	}
-	defer privFile.Close()
+	defer func() { _ = privFile.Close() }()
 
 	if err := pem.Encode(privFile, privBlock); err != nil {
 		return err
