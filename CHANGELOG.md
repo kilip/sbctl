@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1](https://github.com/kilip/sbctl/compare/v0.2.0...v0.2.1) (2026-05-25)
+
+
+### Bug Fixes
+
+* **cli:** fix errcheck warnings in update logic ([053a15e](https://github.com/kilip/sbctl/commit/053a15e99cf322440537d2e724430cdd54cb3c66))
+* **cli:** implement upgrade and version commands ([3fde00d](https://github.com/kilip/sbctl/commit/3fde00d9f5d3d96affd50908ec67a7c3f5b15af3))
+* strip 'v' prefix from version in install script filenames ([d9e9793](https://github.com/kilip/sbctl/commit/d9e9793b2ff2ccc66703b49414675ab8b87ee078))
+
 ## [0.2.0](https://github.com/kilip/sbctl/compare/v0.1.0...v0.2.0) (2026-05-25)
 
 
