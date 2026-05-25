@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/kilip/sbctl/compare/v0.2.2...v0.2.3) (2026-05-25)
+
+
+### Bug Fixes
+
+* **daemon:** resolve CLI service and doctor command PID file resolution ([9001abd](https://github.com/kilip/sbctl/commit/9001abd6ec5df0972730f77e1c56a38ced6265de))
+
 ## [0.2.2](https://github.com/kilip/sbctl/compare/v0.2.1...v0.2.2) (2026-05-25)
 
 
