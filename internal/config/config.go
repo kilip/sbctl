@@ -116,3 +116,12 @@ func initConfig(cfgFile string) error {
 
 	return nil
 }
+
+// Save writes the current configuration back to the config file.
+func (c *Config) Save() error {
+	viper.Set("log", c.Log)
+	viper.Set("vault", c.Vault)
+	viper.Set("gitsync", c.GitSync)
+
+	return viper.WriteConfig()
+}

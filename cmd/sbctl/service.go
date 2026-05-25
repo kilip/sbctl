@@ -110,6 +110,72 @@ var stopCmd = &cobra.Command{
 	},
 }
 
+var restartCmd = &cobra.Command{
+	Use:   "restart",
+	Short: "Restart the sbctl service",
+	Run: func(cmd *cobra.Command, args []string) {
+		m, err := getManager()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		if err := m.Restart(); err != nil {
+			fmt.Printf("Failed to restart service: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+var statusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Check service status",
+	Run: func(cmd *cobra.Command, args []string) {
+		m, err := getManager()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		if err := m.Status(); err != nil {
+			fmt.Printf("Failed to get status: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+var infoCmd = &cobra.Command{
+	Use:   "info",
+	Short: "Show service information",
+	Run: func(cmd *cobra.Command, args []string) {
+		m, err := getManager()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		if err := m.Info(); err != nil {
+			fmt.Printf("Failed to get info: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+var restartTopCmd = &cobra.Command{
+	Use:   "restart",
+	Short: "Restart the sbctl service",
+	Run:   restartCmd.Run,
+}
+
+var statusTopCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Check service status",
+	Run:   statusCmd.Run,
+}
+
+var infoTopCmd = &cobra.Command{
+	Use:   "info",
+	Short: "Show service information",
+	Run:   infoCmd.Run,
+}
+
 var logsCmd = &cobra.Command{
 	Use:   "logs",
 	Short: "View service logs",
@@ -132,5 +198,12 @@ func init() {
 	serviceCmd.AddCommand(uninstallCmd)
 	serviceCmd.AddCommand(startCmd)
 	serviceCmd.AddCommand(stopCmd)
+	serviceCmd.AddCommand(restartCmd)
+	serviceCmd.AddCommand(statusCmd)
+	serviceCmd.AddCommand(infoCmd)
 	serviceCmd.AddCommand(logsCmd)
+
+	rootCmd.AddCommand(restartTopCmd)
+	rootCmd.AddCommand(statusTopCmd)
+	rootCmd.AddCommand(infoTopCmd)
 }

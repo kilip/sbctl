@@ -60,6 +60,63 @@ func (m *Manager) Stop() error {
 	return m.stopProcess()
 }
 
+func (m *Manager) Restart() error {
+	if err := m.Stop(); err != nil {
+		// If it's not running, just start it
+		fmt.Printf("Warning: %v. Starting anyway...\n", err)
+	}
+	return m.Start()
+}
+
+func (m *Manager) Status() error {
+	pidPath := filepath.Join(m.configDir, "sbctl.pid")
+	b, err := os.ReadFile(pidPath)
+	if err != nil {
+		fmt.Println("Status: Stopped")
+		return nil
+	}
+
+	pid, err := strconv.Atoi(string(b))
+	if err != nil {
+		return fmt.Errorf("invalid PID in file")
+	}
+
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		fmt.Println("Status: Stopped (Stale PID file)")
+		return nil
+	}
+
+	// On Unix, FindProcess always succeeds, we need to signal 0 to check existence
+	if err := proc.Signal(syscall.Signal(0)); err != nil {
+		fmt.Println("Status: Stopped (Process not found)")
+		return nil
+	}
+
+	fmt.Printf("Status: Running (PID: %d)\n", pid)
+	return nil
+}
+
+func (m *Manager) Info() error {
+	fmt.Printf("Config Directory: %s\n", m.configDir)
+	fmt.Printf("Config File:      %s\n", m.configFile)
+	logPath := filepath.Join(m.configDir, "sbctl.log")
+	fmt.Printf("Log File:         %s\n", logPath)
+	pidPath := filepath.Join(m.configDir, "sbctl.pid")
+	fmt.Printf("PID File:         %s\n", pidPath)
+
+	installed, err := m.platform.IsInstalled()
+	if err != nil {
+		fmt.Printf("Service Status:   Unknown (%v)\n", err)
+	} else if installed {
+		fmt.Println("Service Status:   Installed")
+	} else {
+		fmt.Println("Service Status:   Not Installed")
+	}
+
+	return nil
+}
+
 func (m *Manager) Logs() error {
 	logPath := filepath.Join(m.configDir, "sbctl.log")
 	// Simple tail implementation
