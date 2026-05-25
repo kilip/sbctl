@@ -51,9 +51,19 @@ func Upgrade() error {
 	}
 
 	latestVersion := release.TagName
+	vLatest := latestVersion
+	if !strings.HasPrefix(vLatest, "v") {
+		vLatest = "v" + vLatest
+	}
+
+	vCurrent := Version
+	if !strings.HasPrefix(vCurrent, "v") {
+		vCurrent = "v" + vCurrent
+	}
+
 	if Version == "dev" {
 		fmt.Printf("Running development version (dev). Latest is %s. Proceeding with upgrade anyway.\n", latestVersion)
-	} else if semver.Compare(latestVersion, Version) <= 0 {
+	} else if semver.Compare(vLatest, vCurrent) <= 0 {
 		fmt.Printf("You are already using the latest version (%s)\n", Version)
 		return nil
 	}
