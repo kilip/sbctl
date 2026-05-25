@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,10 +14,10 @@ import (
 )
 
 type Config struct {
-	ConfigDir string         `mapstructure:"-"`
-	Log       LogConfig      `mapstructure:"log"`
-	Vault     VaultConfig    `mapstructure:"vault"`
-	GitSync   gitsync.Config `mapstructure:"gitsync"`
+	ConfigDir string         `mapstructure:"-" json:"-"`
+	Log       LogConfig      `mapstructure:"log" json:"log"`
+	Vault     VaultConfig    `mapstructure:"vault" json:"vault"`
+	GitSync   gitsync.Config `mapstructure:"gitsync" json:"gitsync"`
 }
 
 var (
@@ -130,9 +131,18 @@ func initConfig(cfgFile string) error {
 
 // Save writes the current configuration back to the config file.
 func (c *Config) Save() error {
-	viper.Set("log", c.Log)
-	viper.Set("vault", c.Vault)
-	viper.Set("gitsync", c.GitSync)
+	data, err := json.Marshal(c)
+	if err != nil {
+		return fmt.Errorf("error marshaling config: %w", err)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return fmt.Errorf("error unmarshaling config to map: %w", err)
+	}
+
+	for k, v := range m {
+		viper.Set(k, v)
+	}
 
 	return viper.WriteConfig()
 }

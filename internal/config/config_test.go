@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -81,5 +82,60 @@ func TestVaultConfig(t *testing.T) {
 	}
 	if cfg.Vault.GitRepository != "git@github.com:user/repo.git" {
 		t.Errorf("expected vault git_repository git@github.com:user/repo.git, got %s", cfg.Vault.GitRepository)
+	}
+}
+
+func TestSaveConfig(t *testing.T) {
+	viper.Reset()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.json")
+
+	err := initConfig(cfgPath)
+	if err != nil {
+		t.Fatalf("initConfig failed: %v", err)
+	}
+
+	cfg := GetConfig()
+	cfg.Vault.Dir = "/tmp/myvault"
+	cfg.Vault.UserName = "Pak Bos"
+	cfg.Vault.UserEmail = "pakbos@example.com"
+	cfg.GitSync.Enabled = true
+
+	err = cfg.Save()
+	if err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	content, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("failed to read config file: %v", err)
+	}
+
+	sContent := string(content)
+	// Check for snake_case fields
+	expectedFields := []string{
+		"\"user_name\"",
+		"\"user_email\"",
+		"\"git_repository\"",
+		"\"enabled\"",
+	}
+
+	for _, field := range expectedFields {
+		if !strings.Contains(sContent, field) {
+			t.Errorf("expected field %s in config file, but not found. Content:\n%s", field, sContent)
+		}
+	}
+
+	// Check that PascalCase fields are NOT present (except maybe in values, but unlikely for these)
+	unexpectedFields := []string{
+		"\"UserName\"",
+		"\"UserEmail\"",
+		"\"GitRepository\"",
+		"\"Enabled\"",
+	}
+	for _, field := range unexpectedFields {
+		if strings.Contains(sContent, field) {
+			t.Errorf("unexpected PascalCase field %s found in config file. Content:\n%s", field, sContent)
+		}
 	}
 }

@@ -15,8 +15,8 @@ const (
 )
 
 type LogConfig struct {
-	Level   LogLevel `mapstructure:"level"`
-	Adapter string   `mapstructure:"adapter"`
+	Level   LogLevel `mapstructure:"level" json:"level"`
+	Adapter string   `mapstructure:"adapter" json:"adapter"`
 }
 
 // loggerDefaults sets the default configuration for the logger.
