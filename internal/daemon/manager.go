@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 // Manager handles service operations (install, uninstall, start, stop, logs).
@@ -120,11 +121,13 @@ func (m *Manager) Info() error {
 func (m *Manager) Logs() error {
 	logPath := filepath.Join(m.configDir, "sbctl.log")
 	// Simple tail implementation
-	cmd := exec.Command("tail", "-f", logPath)
+	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		// Windows doesn't have tail by default, we'll need a different approach later
 		// for now, just print the path or use powershell
 		cmd = exec.Command("powershell", "Get-Content", logPath, "-Wait")
+	} else {
+		cmd = exec.Command("tail", "-f", logPath)
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -151,11 +154,43 @@ func (m *Manager) startProcess() error {
 	cmd := exec.Command(binPath, args...)
 	cmd.Stdout = nil // Will be handled by daemon's setupLogging
 	cmd.Stderr = nil
+
+	// Platform specific detachment
+	if runtime.GOOS != "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setsid: true,
+		}
+	}
+
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start daemon: %w", err)
 	}
 
-	fmt.Printf("Service started with PID %d\n", cmd.Process.Pid)
+	pid := cmd.Process.Pid
+	if err := cmd.Process.Release(); err != nil {
+		return fmt.Errorf("failed to release process: %w", err)
+	}
+
+	// Poll for PID file to confirm startup
+	fmt.Print("Starting service...")
+	success := false
+	for i := 0; i < 30; i++ { // 3 seconds timeout
+		if b, err := os.ReadFile(pidPath); err == nil {
+			currentPid, _ := strconv.Atoi(string(b))
+			if currentPid == pid {
+				success = true
+				break
+			}
+		}
+		fmt.Print(".")
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !success {
+		return fmt.Errorf("\nfailed to confirm service startup (PID file not found)")
+	}
+
+	fmt.Printf("\nService started with PID %d\n", pid)
 	return nil
 }
 
@@ -176,16 +211,29 @@ func (m *Manager) stopProcess() error {
 		return fmt.Errorf("failed to find process: %w", err)
 	}
 
-	if err := proc.Signal(syscall.SIGTERM); err != nil {
-		// Fallback to Kill if SIGTERM fails or on Windows
-		if runtime.GOOS == "windows" {
-			_ = proc.Kill()
-		} else {
-			return fmt.Errorf("failed to stop process: %w", err)
-		}
+	// Try to stop gracefully
+	var errSignal error
+	if runtime.GOOS == "windows" {
+		errSignal = proc.Kill()
+	} else {
+		errSignal = proc.Signal(syscall.SIGTERM)
 	}
 
+	if errSignal != nil {
+		return fmt.Errorf("failed to stop process: %w", errSignal)
+	}
+
+	// Wait for PID file to be removed (daemon's cleanup)
+	for i := 0; i < 20; i++ {
+		if _, err := os.Stat(pidPath); os.IsNotExist(err) {
+			fmt.Println("Service stopped.")
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// Force remove if it still exists after timeout
 	_ = os.Remove(pidPath)
-	fmt.Printf("Service (PID: %d) stopped\n", pid)
+	fmt.Printf("Service (PID: %d) stopped (forced cleanup)\n", pid)
 	return nil
 }
