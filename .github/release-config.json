@@ -1,0 +1,9 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "go",
+      "package-name": "sbctl",
+      "include-component-in-tag": false
+    }
+  }
+}

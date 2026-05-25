@@ -20,7 +20,7 @@ builds:
 archives:
   - id: sbctl
     builds: [sbctl]
-    name_template: "sbctl-{{ .Os }}-{{ .Arch }}"
+    name_template: "sbctl-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     format_overrides:
       - goos: windows
         formats: [zip]
