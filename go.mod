@@ -9,6 +9,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	golang.org/x/crypto v0.52.0
+	golang.org/x/mod v0.36.0
 )
 
 require (
