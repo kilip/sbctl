@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kilip/sbctl/internal/core"
 	"github.com/kilip/sbctl/internal/gitsync"
 	"github.com/spf13/viper"
 )
@@ -44,8 +45,13 @@ func findProjectRoot() (string, bool) {
 		return "", false
 	}
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, true
+		modPath := filepath.Join(dir, "go.mod")
+		if _, err := os.Stat(modPath); err == nil {
+			// Basic check if it's our module to avoid hijacking in other projects
+			content, err := os.ReadFile(modPath)
+			if err == nil && strings.Contains(string(content), "module github.com/kilip/sbctl") {
+				return dir, true
+			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
@@ -67,10 +73,15 @@ func initConfig(cfgFile string) error {
 	if cfgFile != "" {
 		configPath = cfgFile
 	} else {
-		// Auto-detect dev mode: if go.mod exists in current or parent dirs, use testdata/default/config.json
-		if root, ok := findProjectRoot(); ok {
-			configPath = filepath.Join(root, "testdata", "default", "config.json")
-		} else {
+		// Auto-detect dev mode: if version is 'dev' and go.mod exists in current or parent dirs, 
+		// use testdata/default/config.json.
+		if core.Version == "dev" {
+			if root, ok := findProjectRoot(); ok {
+				configPath = filepath.Join(root, "testdata", "default", "config.json")
+			}
+		}
+
+		if configPath == "" {
 			home, err := os.UserHomeDir()
 			if err != nil {
 				return fmt.Errorf("error getting home directory: %w", err)
