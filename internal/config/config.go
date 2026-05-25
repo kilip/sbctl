@@ -73,7 +73,7 @@ func initConfig(cfgFile string) error {
 	if cfgFile != "" {
 		configPath = cfgFile
 	} else {
-		// Auto-detect dev mode: if version is 'dev' and go.mod exists in current or parent dirs, 
+		// Auto-detect dev mode: if version is 'dev' and go.mod exists in current or parent dirs,
 		// use testdata/default/config.json.
 		if core.Version == "dev" {
 			if root, ok := findProjectRoot(); ok {
