@@ -27,6 +27,9 @@ func TestGitSync_StartAndSync(t *testing.T) {
 		t.Fatalf("Start failed: %v", err)
 	}
 
+	// Set git identity for test environment
+	setupGitIdentity(t, tmpDir)
+
 	// Check if git repo was initialized
 	if _, err := os.Stat(filepath.Join(tmpDir, ".git")); os.IsNotExist(err) {
 		t.Errorf("expected git repo to be initialized")
@@ -47,5 +50,19 @@ func TestGitSync_StartAndSync(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Errorf("expected at least one commit: %v. Output: %s", err, string(out))
+	}
+}
+
+func setupGitIdentity(t *testing.T, dir string) {
+	t.Helper()
+	cmd := exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to set git user.email: %v", err)
+	}
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to set git user.name: %v", err)
 	}
 }
