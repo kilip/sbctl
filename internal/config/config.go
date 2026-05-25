@@ -8,16 +8,20 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/kilip/sbctl/internal/core"
 	"github.com/kilip/sbctl/internal/gitsync"
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	ConfigDir string         `mapstructure:"-" json:"-"`
-	Log       LogConfig      `mapstructure:"log" json:"log"`
-	Vault     VaultConfig    `mapstructure:"vault" json:"vault"`
-	GitSync   gitsync.Config `mapstructure:"gitsync" json:"gitsync"`
+	mu        sync.RWMutex    `mapstructure:"-" json:"-"`
+	v         *viper.Viper    `mapstructure:"-" json:"-"`
+	onReload  []func(*Config) `mapstructure:"-" json:"-"`
+	ConfigDir string          `mapstructure:"-" json:"-"`
+	Log       LogConfig       `mapstructure:"log" json:"log"`
+	Vault     VaultConfig     `mapstructure:"vault" json:"vault"`
+	GitSync   gitsync.Config  `mapstructure:"gitsync" json:"gitsync"`
 }
 
 var (
@@ -39,7 +43,17 @@ func GetConfig() *Config {
 			_ = initConfig("")
 		}
 	})
+	instance.mu.RLock()
+	defer instance.mu.RUnlock()
 	return instance
+}
+
+// OnReload registers a callback to be called when the configuration is reloaded.
+func OnReload(f func(*Config)) {
+	cfg := GetConfig()
+	cfg.mu.Lock()
+	defer cfg.mu.Unlock()
+	cfg.onReload = append(cfg.onReload, f)
 }
 
 func findProjectRoot() (string, bool) {
@@ -65,10 +79,10 @@ func findProjectRoot() (string, bool) {
 	return "", false
 }
 
-func initDefaults() {
-	loggerDefaults()
-	vaultDefaults()
-	gitsyncDefaults()
+func initDefaults(v *viper.Viper) {
+	loggerDefaults(v)
+	vaultDefaults(v)
+	gitsyncDefaults(v)
 }
 
 func initConfig(cfgFile string) error {
@@ -93,7 +107,14 @@ func initConfig(cfgFile string) error {
 		}
 	}
 
-	viper.SetConfigFile(configPath)
+	if instance == nil {
+		instance = &Config{
+			v: viper.New(),
+		}
+	}
+	v := instance.v
+
+	v.SetConfigFile(configPath)
 
 	// Create directory if not exists
 	configDir := filepath.Dir(configPath)
@@ -101,14 +122,14 @@ func initConfig(cfgFile string) error {
 		return fmt.Errorf("failed to create config directory %s: %w", configDir, err)
 	}
 
-	viper.SetEnvPrefix("SBCTL")
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
-	viper.AutomaticEnv()
+	v.SetEnvPrefix("SBCTL")
+	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
+	v.AutomaticEnv()
 
 	// Set defaults
-	initDefaults()
+	initDefaults(v)
 
-	if err := viper.ReadInConfig(); err != nil {
+	if err := v.ReadInConfig(); err != nil {
 		// If config file is not found, ignore the error
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok && !os.IsNotExist(err) {
 			// Check if it's a path error which contains "no such file or directory"
@@ -118,23 +139,36 @@ func initConfig(cfgFile string) error {
 		}
 	}
 
-	if instance == nil {
-		instance = &Config{}
-	}
-
-	if err := viper.Unmarshal(instance); err != nil {
+	instance.mu.Lock()
+	if err := v.Unmarshal(instance); err != nil {
+		instance.mu.Unlock()
 		return fmt.Errorf("error unmarshaling config: %w", err)
 	}
-
 	instance.ConfigDir = filepath.Dir(configPath)
+	instance.mu.Unlock()
 
 	_ = instance.ensureSchema()
+
+	// Capture instance for the closure to avoid data race on global 'instance' variable
+	cfg := instance
+	// Start watching for changes
+	v.OnConfigChange(func(e fsnotify.Event) {
+		cfg.mu.Lock()
+		defer cfg.mu.Unlock()
+
+		if err := v.Unmarshal(cfg); err == nil {
+			for _, f := range cfg.onReload {
+				f(cfg)
+			}
+		}
+	})
+	v.WatchConfig()
 
 	return nil
 }
 
 func (c *Config) ensureSchema() error {
-	configPath := viper.ConfigFileUsed()
+	configPath := c.v.ConfigFileUsed()
 	if configPath == "" {
 		return nil
 	}
@@ -182,9 +216,16 @@ func (c *Config) Save() error {
 
 	m["$schema"] = SchemaURL
 
-	for k, v := range m {
-		viper.Set(k, v)
+	for key, val := range m {
+		c.v.Set(key, val)
 	}
 
-	return viper.WriteConfig()
+	return c.v.WriteConfig()
+}
+
+// Reset resets the global configuration instance.
+// Should only be used for testing.
+func Reset() {
+	instance = nil
+	once = sync.Once{}
 }

@@ -10,9 +10,9 @@ type VaultConfig struct {
 }
 
 // vaultDefaults sets the default configuration for the vault.
-func vaultDefaults() {
-	viper.SetDefault("vault.dir", "")
-	viper.SetDefault("vault.user_name", "")
-	viper.SetDefault("vault.user_email", "")
-	viper.SetDefault("vault.git_repository", "")
+func vaultDefaults(v *viper.Viper) {
+	v.SetDefault("vault.dir", "")
+	v.SetDefault("vault.user_name", "")
+	v.SetDefault("vault.user_email", "")
+	v.SetDefault("vault.git_repository", "")
 }

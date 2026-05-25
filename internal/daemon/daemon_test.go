@@ -76,7 +76,7 @@ func TestDaemon_StartAndReload(t *testing.T) {
 	}
 
 	// Trigger reload
-	d.reloadWorkers()
+	d.Reload()
 
 	// Wait a bit
 	time.Sleep(100 * time.Millisecond)

@@ -9,9 +9,7 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
-	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/kilip/sbctl/internal/shared/logger"
 )
 
@@ -52,10 +50,7 @@ func (d *Daemon) Start() error {
 	defer d.cancel()
 
 	// Initial worker start
-	d.reloadWorkers()
-
-	// Watch for config changes
-	go d.watchConfig()
+	d.Reload()
 
 	// Handle signals
 	sigChan := make(chan os.Signal, 1)
@@ -71,9 +66,11 @@ func (d *Daemon) Start() error {
 	return nil
 }
 
-func (d *Daemon) reloadWorkers() {
+func (d *Daemon) Reload() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
+	d.logger.Info("reloading daemon workers")
 
 	// Stop existing workers by cancelling context
 	if d.workerCancel != nil {
@@ -91,44 +88,6 @@ func (d *Daemon) reloadWorkers() {
 				d.logger.Error("worker failed", "name", worker.Name(), "error", err)
 			}
 		}(w)
-	}
-}
-
-func (d *Daemon) watchConfig() {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		d.logger.Error("failed to create config watcher", "error", err)
-		return
-	}
-	defer func() { _ = watcher.Close() }()
-
-	if err := watcher.Add(filepath.Dir(d.configPath)); err != nil {
-		d.logger.Error("failed to watch config directory", "error", err)
-		return
-	}
-
-	d.logger.Info("watching config for changes", "path", d.configPath)
-
-	for {
-		select {
-		case event, ok := <-watcher.Events:
-			if !ok {
-				return
-			}
-			if event.Name == d.configPath && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
-				d.logger.Info("config change detected, reloading workers")
-				// Debounce reload
-				time.Sleep(500 * time.Millisecond)
-				d.reloadWorkers()
-			}
-		case err, ok := <-watcher.Errors:
-			if !ok {
-				return
-			}
-			d.logger.Error("config watcher error", "error", err)
-		case <-d.ctx.Done():
-			return
-		}
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kilip/sbctl/internal/daemon"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -141,7 +140,7 @@ func RunWizard() error {
 	// Service Install
 	if installService {
 		fmt.Printf("\n⚙️  %s\n", lipgloss.NewStyle().Foreground(colorGem).Bold(true).Render("Installing service..."))
-		configFile := viper.ConfigFileUsed()
+		configFile := cfg.v.ConfigFileUsed()
 		m, err := daemon.NewManager(cfg.ConfigDir, configFile)
 		if err != nil {
 			return err

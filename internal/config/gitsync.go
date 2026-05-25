@@ -9,10 +9,10 @@ import (
 )
 
 // gitsyncDefaults sets the default configuration for gitsync.
-func gitsyncDefaults() {
-	viper.SetDefault("gitsync.enabled", false)
-	viper.SetDefault("gitsync.git_repository", "")
-	viper.SetDefault("gitsync.debounce", 10*time.Second)
+func gitsyncDefaults(v *viper.Viper) {
+	v.SetDefault("gitsync.enabled", false)
+	v.SetDefault("gitsync.git_repository", "")
+	v.SetDefault("gitsync.debounce", 10*time.Second)
 }
 
 func (c *Config) GetGitSync() daemon.Worker {

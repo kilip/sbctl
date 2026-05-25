@@ -5,12 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/spf13/viper"
 )
 
 func TestInitConfig_DevMode(t *testing.T) {
-	viper.Reset()
+	Reset()
 
 	root, ok := findProjectRoot()
 	if !ok {
@@ -24,14 +22,14 @@ func TestInitConfig_DevMode(t *testing.T) {
 	}
 
 	expected := filepath.Join(root, "testdata", "default", "config.json")
-	if viper.ConfigFileUsed() != expected {
-		t.Errorf("expected %s, got %s", expected, viper.ConfigFileUsed())
+	if GetConfig().v.ConfigFileUsed() != expected {
+		t.Errorf("expected %s, got %s", expected, GetConfig().v.ConfigFileUsed())
 	}
 }
 
 func TestInitConfig_Env(t *testing.T) {
 	// Reset viper for test
-	viper.Reset()
+	Reset()
 
 	tmpDir := t.TempDir()
 	cfgPath := filepath.Join(tmpDir, "config.json")
@@ -50,7 +48,7 @@ func TestInitConfig_Env(t *testing.T) {
 }
 
 func TestVaultConfig(t *testing.T) {
-	viper.Reset()
+	Reset()
 	tmpDir := t.TempDir()
 	cfgPath := filepath.Join(tmpDir, "config.json")
 
@@ -86,7 +84,7 @@ func TestVaultConfig(t *testing.T) {
 }
 
 func TestSaveConfig(t *testing.T) {
-	viper.Reset()
+	Reset()
 	tmpDir := t.TempDir()
 	cfgPath := filepath.Join(tmpDir, "config.json")
 

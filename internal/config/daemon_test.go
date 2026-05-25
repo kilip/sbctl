@@ -4,12 +4,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/spf13/viper"
 )
 
 func TestBootstrapDaemon(t *testing.T) {
-	viper.Reset()
+	Reset()
 	testCwd, _ := os.Getwd()
 	configDir := filepath.Join(testCwd, ".sbctl")
 	configPath := filepath.Join(configDir, "config.json")

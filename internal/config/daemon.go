@@ -2,17 +2,14 @@ package config
 
 import (
 	"github.com/kilip/sbctl/internal/daemon"
-	"github.com/spf13/viper"
 )
 
 func (c *Config) NewDaemon() *daemon.Daemon {
-	configPath := viper.ConfigFileUsed()
+	configPath := c.v.ConfigFileUsed()
 	l := SetupLogger(c)
 
 	// Provider this will be called every time reload
 	provider := func() []daemon.Worker {
-		// Re-read config from file to get latest values
-		_ = initConfig(configPath)
 		cfg := GetConfig()
 
 		return []daemon.Worker{
@@ -21,7 +18,13 @@ func (c *Config) NewDaemon() *daemon.Daemon {
 		}
 	}
 
-	return daemon.NewDaemon(provider, configPath, l)
+	d := daemon.NewDaemon(provider, configPath, l)
+
+	OnReload(func(cfg *Config) {
+		d.Reload()
+	})
+
+	return d
 }
 
 func BootstrapDaemon() *daemon.Daemon {
