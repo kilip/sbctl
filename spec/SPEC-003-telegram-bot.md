@@ -1,6 +1,6 @@
 ---
 title: SPEC-003: Telegram Bot Integration & UX
-version: 1.0
+version: 1.1
 date_created: 2026-05-26
 last_updated: 2026-05-26
 owner: Pak Bos
@@ -44,11 +44,72 @@ Upon receiving an update:
 - `approve:<tool_call_id>`: Signals the Agent ([SPEC-002](./SPEC-002-agent-provider.md)) to proceed with execution.
 - `deny:<tool_call_id>`: Signals the Agent ([SPEC-002](./SPEC-002-agent-provider.md)) to abort execution and return a user-friendly error.
 
+### 4.3 Profile Commands *(AMENDMENT-001)*
+
+| Command | Description |
+|---|---|
+| `/profile` | List all profiles for the current user |
+| `/profile <name>` | Switch the active profile for the current session |
+| `/profile add <name> <path>` | Create a new profile |
+| `/profile remove <name>` | Delete a profile (default profile cannot be removed) |
+
+#### `/profile` — List
+
+Responds with a formatted list of all user profiles. The active session profile is marked with `●`.
+
+Example response:
+```
+Your profiles:
+● vault   ~/brain       (default)
+  sbctl   ~/code/sbctl
+```
+
+#### `/profile <name>` — Switch
+
+1. Look up profile by `name` for the current user.
+2. Update `session.profile_id` to the found profile's ID.
+3. Respond with a confirmation message.
+
+Example response:
+```
+Switched to profile: sbctl
+Working directory: ~/code/sbctl
+```
+
+If the profile name is not found:
+```
+Profile "foo" not found. Use /profile to see available profiles.
+```
+
+#### `/profile add <name> <path>` — Create
+
+1. Validate that `name` is unique for the user and `path` is a non-empty string.
+2. Create a new `Profile` record with `is_default = false`.
+3. Respond with confirmation.
+
+Example response:
+```
+Profile "sbctl" created (~/code/sbctl).
+Use /profile sbctl to switch.
+```
+
+#### `/profile remove <name>` — Delete
+
+1. Reject if the profile is the user's default (`is_default = true`):
+```
+Cannot remove the default profile. Set another profile as default first.
+```
+2. Otherwise soft-delete the `Profile` record.
+3. If the current session's `profile_id` matches the removed profile, reset `session.profile_id = NULL` (will fall back to default).
+
 ## 5. Acceptance Criteria
 
 - **AC-001**: Given a message from an unauthorized user, the bot must ignore the input and refrain from creating database entries.
 - **AC-002**: Given a response exceeding 4096 characters, the bot must segment the message into multiple parts, indexed as `(1/n)`.
 - **AC-003**: Given a "Dangerous Tool" execution request (e.g., `terminal rm -rf`), the bot must present a confirmation message with explicit `Approve` and `Deny` buttons.
+- **AC-004** *(AMENDMENT-001 addendum)*: Given `/profile sbctl`, the bot must confirm the switch and display the resolved `working_dir`.
+- **AC-005** *(AMENDMENT-001 addendum)*: Given `/profile remove vault` on the default profile, the bot must reject with a descriptive error.
+- **AC-006** *(AMENDMENT-001 addendum)*: Given `/profile add sbctl ~/code/sbctl` with a duplicate name, the bot must reject with a descriptive error.
 
 ## 6. Test Automation Strategy
 

@@ -1,6 +1,6 @@
 ---
 title: SPEC-002: Agent Provider & LLM Orchestration
-version: 1.0
+version: 1.1
 date_created: 2026-05-26
 last_updated: 2026-05-26
 owner: Pak Bos
@@ -41,18 +41,38 @@ type Provider interface {
 
     // ExecuteContext processes multi-turn interactions with full state.
     // memContext is an XML-formatted string containing prefetched facts from SPEC-001.
-    ExecuteContext(ctx context.Context, session *ent.Session, history []ent.Message, memContext string) (*IntentResult, error)
+    ExecuteContext(ctx context.Context, exec ExecuteContext) (*IntentResult, error)
 }
 ```
 
-### 4.2 IntentResult
-The data structure returned by the LLM, containing either a textual response or a set of tool-call requests.
+### 4.2 ExecuteContext *(updated by AMENDMENT-001)*
+
+```go
+type ExecuteContext struct {
+    Session    *ent.Session
+    History    []ent.Message
+    MemContext string
+    WorkingDir string // resolved from session.profile.working_dir
+}
+```
+
+### 4.3 WorkingDir Resolution Logic *(AMENDMENT-001)*
+
+`WorkingDir` MUST be resolved **once** when `ExecuteContext` is initialised — not on every tool call. Resolution order:
+
+1. Load `session.profile_id` → fetch `Profile.working_dir`.
+2. If `profile_id` is `NULL`, fetch the user's `is_default = true` profile.
+3. Expand `~` to the OS home directory before storing in `ExecuteContext`.
+
+All tools that operate on the filesystem (e.g. `terminal`, `read_file`, `write_file`) MUST use `ExecuteContext.WorkingDir` as their working directory. Relative paths passed by the LLM are resolved against this value.
 
 ## 5. Acceptance Criteria
 
 - **AC-001**: Given a user query regarding "Project X", when the system performs prefetch, relevant facts from the `Memory` table must be retrieved and injected into the prompt.
 - **AC-002**: Given a command to delete files (e.g., `rm -rf`), when the agent attempts to invoke the `terminal` tool, the system must intercept execution and set the message status to `Awaiting Approval`.
 - **AC-003**: Given an LLM response requesting tool execution, the system must execute non-dangerous tools locally and return the output to the LLM automatically.
+- **AC-004** *(AMENDMENT-001 addendum)*: Given a session with `profile_id` pointing to the `sbctl` profile, the `terminal` tool MUST execute with `working_dir = ~/code/sbctl`.
+- **AC-005** *(AMENDMENT-001 addendum)*: Given a session with `profile_id = NULL`, the `terminal` tool MUST fall back to the user's default profile `working_dir`.
 
 ## 6. Test Automation Strategy
 

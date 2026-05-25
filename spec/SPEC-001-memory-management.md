@@ -1,6 +1,6 @@
 ---
 title: SPEC-001: Persistent Memory Management (SQLite + ent)
-version: 1.1
+version: 1.2
 date_created: 2026-05-26
 last_updated: 2026-05-26
 owner: Pak Bos
@@ -66,9 +66,24 @@ The objective is to provide a persistent data structure for episodic memory (con
 |---|---|---|
 | id | UUID (v7) | Primary Key |
 | account_id | UUID | Foreign Key to Account |
+| profile_id | UUID | Foreign Key → `Profile`; nullable |
 | title | String | Optional — short label for UI display |
 | summary | Text | Optional — auto-generated session summary |
 | created, updated, deleted | Time | Internal Audit |
+
+> **Resolution rule**: if `profile_id IS NULL`, resolve to the user's `is_default = true` profile at runtime.
+
+#### Profile Table
+| Field | Type | Constraint |
+|---|---|---|
+| id | UUID (v7) | Primary Key |
+| user_id | UUID | Foreign Key → `User` |
+| name | String | Required; unique per user (e.g. `vault`, `sbctl`) |
+| working_dir | String | Required; absolute or `~`-prefixed path |
+| is_default | Bool | Default: `false`; only one record per user may be `true` |
+| created, updated, deleted | Time | Internal Audit (soft-delete applies) |
+
+> **Constraint**: Changing `is_default` to `true` on one profile MUST atomically set `is_default = false` on all other profiles for the same user. Enforce via ent hook or transaction.
 
 #### Message Table (Episodic History)
 | Field | Type | Constraint |
@@ -147,6 +162,9 @@ The agent is responsible for evaluating whether a conversation turn contains fac
 - **AC-005**: Given a "Dangerous Tool" execution, when the operation completes, then the system must record the execution details in the `AuditLog` via ent hook — no manual logging call required.
 - **AC-006**: Given a message with role "tool", the `content` field must be valid JSON containing at minimum `tool_call_id` and `result` keys.
 - **AC-007**: Given a fact extracted during agent processing, it must be persisted to the `Memory` table with valid `session_id` and `message_id` references before the agent response is sent.
+- **AC-008** *(AMENDMENT-001)*: Given a new User, a `vault` profile with `working_dir = ~/brain` and `is_default = true` must be auto-provisioned via ent hook on User creation.
+- **AC-009** *(AMENDMENT-001)*: Given two profiles for the same user, only one may have `is_default = true` at any time — enforced at the persistence layer.
+- **AC-010** *(AMENDMENT-001)*: Given a `Session` with `profile_id = NULL`, the Agent must resolve and use the user's default profile.
 
 ## 6. Test Automation Strategy
 
@@ -189,6 +207,21 @@ The agent is responsible for evaluating whether a conversation turn contains fac
 
 ### Compliance Dependencies
 - **COM-001**: None - No specific regulatory compliance requirements identified.
+
+## 8b. Default Data Seeding *(AMENDMENT-001)*
+
+When a new `User` is provisioned, automatically create one `Profile` record via ent hook on `User` creation:
+
+```go
+Profile{
+    UserID:     user.ID,
+    Name:       "vault",
+    WorkingDir: "~/brain",
+    IsDefault:  true,
+}
+```
+
+---
 
 ## 9. Examples & Edge Cases
 
