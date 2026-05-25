@@ -35,6 +35,7 @@ settings:
     - ci
     - chore
     - revert
+    - impr
     flags: {}
 disable-default-ignores: false
 ignores: []

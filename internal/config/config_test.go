@@ -114,6 +114,7 @@ func TestSaveConfig(t *testing.T) {
 	sContent := string(content)
 	// Check for snake_case fields
 	expectedFields := []string{
+		"\"$schema\"",
 		"\"user_name\"",
 		"\"user_email\"",
 		"\"git_repository\"",

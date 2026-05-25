@@ -25,6 +25,8 @@ var (
 	once     sync.Once
 )
 
+const SchemaURL = "https://raw.githubusercontent.com/kilip/sbctl/main/docs/config-schema.json"
+
 // Init initializes the configuration with the given file path.
 func Init(cfgFile string) error {
 	return initConfig(cfgFile)
@@ -126,7 +128,45 @@ func initConfig(cfgFile string) error {
 
 	instance.ConfigDir = filepath.Dir(configPath)
 
+	_ = instance.ensureSchema()
+
 	return nil
+}
+
+func (c *Config) ensureSchema() error {
+	configPath := viper.ConfigFileUsed()
+	if configPath == "" {
+		return nil
+	}
+
+	// Read file content
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var m map[string]interface{}
+	if err := json.Unmarshal(content, &m); err != nil {
+		// Not a valid JSON or empty, we skip auto-injection to avoid corruption
+		return nil
+	}
+
+	if _, ok := m["$schema"]; ok {
+		return nil
+	}
+
+	// Inject $schema
+	m["$schema"] = SchemaURL
+
+	newContent, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, newContent, 0644)
 }
 
 // Save writes the current configuration back to the config file.
@@ -139,6 +179,8 @@ func (c *Config) Save() error {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return fmt.Errorf("error unmarshaling config to map: %w", err)
 	}
+
+	m["$schema"] = SchemaURL
 
 	for k, v := range m {
 		viper.Set(k, v)

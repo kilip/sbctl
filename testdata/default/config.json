@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/kilip/sbctl/main/docs/config-schema.json",
+  "gitsync": {
+    "debounce": 10000000000,
+    "dir": "",
+    "enabled": false,
+    "git_repository": "",
+    "user_email": "",
+    "user_name": ""
+  },
+  "log": {
+    "adapter": "slog",
+    "level": "info"
+  },
+  "vault": {
+    "dir": "",
+    "git_repository": "",
+    "user_email": "",
+    "user_name": ""
+  }
+}

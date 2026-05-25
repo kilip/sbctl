@@ -5,6 +5,8 @@
 pre-commit:
   parallel: false
   commands:
+    gen-schema:
+      run: task gen-schema && git add docs/config-schema.json
     fix:
       run: task fix
     test:

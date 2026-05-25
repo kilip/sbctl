@@ -16,7 +16,13 @@ tasks:
       - go install github.com/conventionalcommit/commitlint@latest
       - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
       - lefthook install
+      - task: gen-schema
       - echo "Setup complete. Tools installed and git hooks synchronized."
+
+  gen-schema:
+    desc: Generate JSON Schema for configuration
+    cmds:
+      - go run cmd/gen-schema/main.go
 
   fmt:
     desc: Format the code
