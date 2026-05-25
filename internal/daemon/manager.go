@@ -156,11 +156,7 @@ func (m *Manager) startProcess() error {
 	cmd.Stderr = nil
 
 	// Platform specific detachment
-	if runtime.GOOS != "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setsid: true,
-		}
-	}
+	detachProcess(cmd)
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start daemon: %w", err)
