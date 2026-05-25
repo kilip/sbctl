@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.2](https://github.com/kilip/sbctl/compare/v0.2.1...v0.2.2) (2026-05-25)
+
+
+### Bug Fixes
+
+* **cli:** normalize semver with 'v' prefix before comparison ([900202e](https://github.com/kilip/sbctl/commit/900202ead477dd25ca491b2d575e64ca9a360f08))
+* **config:** simplify dev mode detection and prevent hijacking ([b0e1d5d](https://github.com/kilip/sbctl/commit/b0e1d5dbcf981c123a816c9009c48ddee020abd9))
+* **daemon:** fix windows build failure by abstracting Setsid detachment ([d61bd9c](https://github.com/kilip/sbctl/commit/d61bd9ca8f18515e6ee7db15a421f3d03c77a03d))
+* **daemon:** improve service startup and stop reliability ([60b70e2](https://github.com/kilip/sbctl/commit/60b70e29f5ef4930d7008813574ff441e64c6566))
+
 ## [0.2.1](https://github.com/kilip/sbctl/compare/v0.2.0...v0.2.1) (2026-05-25)
 
 
