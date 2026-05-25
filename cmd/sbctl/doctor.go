@@ -10,7 +10,6 @@ import (
 	"github.com/kilip/sbctl/internal/config"
 	"github.com/kilip/sbctl/internal/daemon"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var doctorCmd = &cobra.Command{
@@ -135,13 +134,12 @@ func runDoctor() {
 	fmt.Println()
 	// 6. Check Service Status
 	fmt.Println("Checking Background Service:")
-	configFile := viper.ConfigFileUsed()
-	configDir := filepath.Dir(configFile)
-	m, err := daemon.NewManager(configDir, configFile)
+	configFile := filepath.Join(cfg.ConfigDir, "config.json")
+	m, err := daemon.NewManager(cfg.ConfigDir, configFile)
 	if err != nil {
 		fmt.Printf("  ❌ failed to initialize service manager: %v\n", err)
 	} else {
-		pidPath := filepath.Join(configDir, "sbctl.pid")
+		pidPath := filepath.Join(cfg.ConfigDir, "sbctl.pid")
 		if _, err := os.Stat(pidPath); err != nil {
 			fmt.Println("  ⚠️  Background service is not running (stopped)")
 		} else {

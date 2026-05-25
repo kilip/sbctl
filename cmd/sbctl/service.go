@@ -26,9 +26,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kilip/sbctl/internal/config"
 	"github.com/kilip/sbctl/internal/daemon"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // serviceCmd represents the service command
@@ -39,9 +39,9 @@ var serviceCmd = &cobra.Command{
 }
 
 func getManager() (*daemon.Manager, error) {
-	configFile := viper.ConfigFileUsed()
-	configDir := filepath.Dir(configFile)
-	return daemon.NewManager(configDir, configFile)
+	cfg := config.GetConfig()
+	configFile := filepath.Join(cfg.ConfigDir, "config.json")
+	return daemon.NewManager(cfg.ConfigDir, configFile)
 }
 
 var installCmd = &cobra.Command{

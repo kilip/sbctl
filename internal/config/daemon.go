@@ -1,11 +1,13 @@
 package config
 
 import (
+	"path/filepath"
+
 	"github.com/kilip/sbctl/internal/daemon"
 )
 
 func (c *Config) NewDaemon() *daemon.Daemon {
-	configPath := c.v.ConfigFileUsed()
+	configPath := filepath.Join(c.ConfigDir, "config.json")
 	l := SetupLogger(c)
 
 	// Provider this will be called every time reload
