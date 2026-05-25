@@ -62,7 +62,7 @@ func ConfigureSSH(configDir, vaultDir, userEmail string) error {
 		if strings.Contains(outStr, "already in use") || strings.Contains(outStr, "already exists") {
 			fmt.Println("Warning: SSH key already exists in GitHub account.")
 		} else {
-			return fmt.Errorf("failed to upload ssh key: %w\n%s", err, outStr)
+			fmt.Printf("Warning: failed to upload ssh key: %v\n%s\n", err, outStr)
 		}
 	} else {
 		fmt.Println("Successfully uploaded SSH key to GitHub.")
@@ -75,7 +75,7 @@ func ConfigureSSH(configDir, vaultDir, userEmail string) error {
 		if strings.Contains(outStr, "already in use") || strings.Contains(outStr, "already exists") {
 			fmt.Println("Warning: SSH signing key already exists in GitHub account.")
 		} else {
-			return fmt.Errorf("failed to upload ssh signing key: %w\n%s", err, outStr)
+			fmt.Printf("Warning: failed to upload ssh signing key: %v\n%s\n", err, outStr)
 		}
 	} else {
 		fmt.Println("Successfully uploaded SSH signing key to GitHub.")
