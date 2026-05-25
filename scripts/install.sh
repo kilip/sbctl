@@ -65,7 +65,8 @@ install_binary() {
   local arch="$2"
   local version="$3"
 
-  local filename="${BINARY}-${version}-${os}-${arch}.tar.gz"
+  local version_no_v="${version#v}"
+  local filename="${BINARY}-${version_no_v}-${os}-${arch}.tar.gz"
   local url="https://github.com/${REPO}/releases/download/${version}/${filename}"
   local tmp_dir
   tmp_dir=$(mktemp -d)

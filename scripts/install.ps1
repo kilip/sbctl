@@ -36,7 +36,8 @@ function Get-Arch {
 function Install-Binary {
     param($Arch, $Ver)
 
-    $filename = "${Binary}-${Ver}-windows-${Arch}.zip"
+    $verNoV   = $Ver -replace '^v', ''
+    $filename = "${Binary}-${verNoV}-windows-${Arch}.zip"
     $url      = "https://github.com/$Repo/releases/download/$Ver/$filename"
     $tmpDir   = Join-Path $env:TEMP "sbctl_install_$(Get-Random)"
 
