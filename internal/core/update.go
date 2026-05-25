@@ -39,7 +39,7 @@ func Upgrade() error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch latest release: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("github API returned status: %d", resp.StatusCode)
@@ -86,13 +86,13 @@ func Upgrade() error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	downloadResp, err := http.Get(downloadURL)
 	if err != nil {
 		return fmt.Errorf("failed to download release: %w", err)
 	}
-	defer downloadResp.Body.Close()
+	defer func() { _ = downloadResp.Body.Close() }()
 
 	if downloadResp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download returned status: %d", downloadResp.StatusCode)
@@ -101,7 +101,7 @@ func Upgrade() error {
 	if _, err := io.Copy(tmpFile, downloadResp.Body); err != nil {
 		return fmt.Errorf("failed to save download: %w", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Extract binary
 	fmt.Println("Extracting binary...")
@@ -110,8 +110,8 @@ func Upgrade() error {
 		return fmt.Errorf("failed to create temp binary file: %w", err)
 	}
 	tmpBinPath := tmpBin.Name()
-	tmpBin.Close() // Will be opened by extraction
-	defer os.Remove(tmpBinPath)
+	_ = tmpBin.Close() // Will be opened by extraction
+	defer func() { _ = os.Remove(tmpBinPath) }()
 
 	if isZip {
 		if err := extractZip(tmpFile.Name(), tmpBinPath); err != nil {
@@ -141,7 +141,7 @@ func Upgrade() error {
 	if err := os.Rename(executable, oldBin); err != nil {
 		return fmt.Errorf("failed to rename old binary (you may need to run as administrator/root): %w", err)
 	}
-	defer os.Remove(oldBin) // Clean up old binary
+	defer func() { _ = os.Remove(oldBin) }() // Clean up old binary
 
 	// Move new binary into place
 	if err := copyFile(tmpBinPath, executable); err != nil {
@@ -164,13 +164,13 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	if _, err := io.Copy(out, in); err != nil {
 		return err
@@ -183,7 +183,7 @@ func extractZip(archivePath, destPath string) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	for _, f := range r.File {
 		if f.Name == "sbctl" || f.Name == "sbctl.exe" {
@@ -191,13 +191,13 @@ func extractZip(archivePath, destPath string) error {
 			if err != nil {
 				return err
 			}
-			defer rc.Close()
+			defer func() { _ = rc.Close() }()
 
 			dst, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 			if err != nil {
 				return err
 			}
-			defer dst.Close()
+			defer func() { _ = dst.Close() }()
 
 			_, err = io.Copy(dst, rc)
 			return err
@@ -211,13 +211,13 @@ func extractTarGz(archivePath, destPath string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	gr, err := gzip.NewReader(f)
 	if err != nil {
 		return err
 	}
-	defer gr.Close()
+	defer func() { _ = gr.Close() }()
 
 	tr := tar.NewReader(gr)
 
@@ -235,7 +235,7 @@ func extractTarGz(archivePath, destPath string) error {
 			if err != nil {
 				return err
 			}
-			defer dst.Close()
+			defer func() { _ = dst.Close() }()
 
 			_, err = io.Copy(dst, tr)
 			return err
