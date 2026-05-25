@@ -1,6 +1,6 @@
 ---
 title: SPEC-003: Telegram Bot Integration & UX
-version: 1.1
+version: 1.2
 date_created: 2026-05-26
 last_updated: 2026-05-26
 owner: Pak Bos
@@ -29,7 +29,7 @@ The objective is to provide a secure, responsive, and intuitive interface for th
 - **REQ-002 (HITL Workflow Support)**: The bot must facilitate the tool approval flow using Inline Keyboards as defined in [SPEC-002](./SPEC-002-agent-provider.md).
 - **CON-001 (Strict Escaping)**: All outgoing text MUST pass through a `MarkdownV2Escaper` utility to ensure compatibility with the Telegram parsing engine.
 - **SEC-001 (Credential Protection)**: The Telegram Bot Token must never be exposed in logs, CLI output, or error messages.
-- **UX-001 (Feedback Indicators)**: The bot should emit a "typing" status while the Agent is processing a response.
+- **UX-001 (Feedback Indicators)**: The bot should emit a "typing" status while the Agent is processing a response, and stop once the response is sent or an error occurs.
 
 ## 4. Interfaces & Data Contracts
 
@@ -38,13 +38,56 @@ Upon receiving an update:
 1. Extract the `external_id` (Telegram User ID).
 2. Query the `Account` table defined in [SPEC-001](./SPEC-001-memory-management.md).
 3. If no record exists and the ID is on the allowlist, provision new `User` and `Account` entities.
-4. Associate the interaction with an active `Session` or initialize a new one.
+4. Associate the interaction with the user's active `Session`, or prompt the user to create one via `/new`.
 
-### 4.2 Callback Data Schema
-- `approve:<tool_call_id>`: Signals the Agent ([SPEC-002](./SPEC-002-agent-provider.md)) to proceed with execution.
-- `deny:<tool_call_id>`: Signals the Agent ([SPEC-002](./SPEC-002-agent-provider.md)) to abort execution and return a user-friendly error.
+### 4.2 Session Lifecycle
 
-### 4.3 Profile Commands *(AMENDMENT-001)*
+Sessions are explicitly managed by the user via commands:
+
+| Command | Behavior |
+|---|---|
+| `/new` | Create a new `Session` record; set it as the active session for the current `Account`. Respond with a confirmation and the new session ID. |
+
+> **Note**: There is no automatic session creation on message receipt. If a user sends a message without an active session, the bot must respond: *"No active session. Use /new to start one."*
+
+### 4.3 Bot Commands
+
+#### `/start` — Onboarding
+
+Triggered when the user first interacts with the bot (or re-opens it).
+
+1. Extract `external_id` (Telegram User ID).
+2. Check allowlist — if not authorized, ignore silently.
+3. If no `Account` exists for this `external_id`, provision `User` and `Account` entities (as per Section 4.1).
+4. Respond with a welcome message and available commands.
+
+Example response:
+```
+👋 Welcome to sbctl!
+Your account has been set up.
+
+Use /new to start a session and begin interacting with your Second Brain.
+```
+
+If the account already exists:
+```
+👋 Welcome back!
+Use /new to start a new session.
+```
+
+#### `/new` — New Session
+
+1. Create a new `Session` record linked to the current `Account`.
+2. Set it as the active session.
+3. Respond with confirmation.
+
+Example response:
+```
+✅ New session started.
+Session ID: 01926b3e-...
+```
+
+### 4.4 Profile Commands *(AMENDMENT-001)*
 
 | Command | Description |
 |---|---|
@@ -102,6 +145,10 @@ Cannot remove the default profile. Set another profile as default first.
 2. Otherwise soft-delete the `Profile` record.
 3. If the current session's `profile_id` matches the removed profile, reset `session.profile_id = NULL` (will fall back to default).
 
+### 4.5 Callback Data Schema
+- `approve:<tool_call_id>`: Signals the Agent ([SPEC-002](./SPEC-002-agent-provider.md)) to proceed with execution.
+- `deny:<tool_call_id>`: Signals the Agent ([SPEC-002](./SPEC-002-agent-provider.md)) to abort execution and return a user-friendly error.
+
 ## 5. Acceptance Criteria
 
 - **AC-001**: Given a message from an unauthorized user, the bot must ignore the input and refrain from creating database entries.
@@ -110,6 +157,9 @@ Cannot remove the default profile. Set another profile as default first.
 - **AC-004** *(AMENDMENT-001 addendum)*: Given `/profile sbctl`, the bot must confirm the switch and display the resolved `working_dir`.
 - **AC-005** *(AMENDMENT-001 addendum)*: Given `/profile remove vault` on the default profile, the bot must reject with a descriptive error.
 - **AC-006** *(AMENDMENT-001 addendum)*: Given `/profile add sbctl ~/code/sbctl` with a duplicate name, the bot must reject with a descriptive error.
+- **AC-007** *(AMENDMENT-002)*: Given a `/start` command from an authorized new user, the bot must provision `User` and `Account` entities and respond with a welcome message.
+- **AC-008** *(AMENDMENT-002)*: Given a `/new` command, the bot must create a new `Session` and set it as active for the current `Account`.
+- **AC-009** *(AMENDMENT-002)*: Given any non-command message sent without an active session, the bot must respond with a prompt to use `/new`.
 
 ## 6. Test Automation Strategy
 
@@ -121,6 +171,8 @@ Cannot remove the default profile. Set another profile as default first.
 
 - **MarkdownV2 Adoption**: Provides professional-grade formatting (code blocks, monospacing) essential for technical and engineering outputs.
 - **Inline Keyboards for HITL**: Offers the most efficient and secure method for mobile users to authorize high-risk actions without manual command entry.
+- **Explicit Session Management via `/new`**: Avoids ambiguity around automatic session creation. Users have full control over session boundaries, which maps directly to context window management for the Agent.
+- **`/start` for Onboarding**: Follows Telegram bot conventions; serves as the canonical entry point for account provisioning without requiring a separate setup step.
 
 ## 8. Dependencies & External Integrations
 
@@ -139,6 +191,7 @@ Cannot remove the default profile. Set another profile as default first.
 
 ### Technology Platform Dependencies
 - **PLT-001**: Go Runtime - Core execution environment.
+- **PLT-002**: `github.com/go-telegram/bot` - Telegram Bot API client library (pure Go, actively maintained).
 
 ### Compliance Dependencies
 - **COM-001**: None - No specific regulatory compliance requirements identified.
@@ -153,15 +206,30 @@ Buttons: `[ ✅ Approve ]` `[ ❌ Deny ]`
 Input: `Hello *World*! [v1.0]`
 Output: `Hello \*World\*\! \[v1.0\]`
 
+### No Active Session
+User sends: `"What is the status of Project X?"`
+Bot responds: `"No active session. Use /new to start one."`
+
 ## 10. Validation Criteria
 
 - **VAL-001**: Verification of per-session concurrency to prevent polling loop blockages.
 - **VAL-002**: Accuracy of MarkdownV2 escaping for all special character sets.
 - **VAL-003**: Confirmation of correct session association for multi-user environments.
 - **VAL-004**: Verification of callback signal transmission to the Agent Manager.
+- **VAL-005** *(AMENDMENT-002)*: `/start` correctly provisions new users and handles existing users gracefully.
+- **VAL-006** *(AMENDMENT-002)*: `/new` always creates a fresh `Session` and updates the active session reference on `Account`.
 
-## 11. Related Specifications / Further Reading
+## 11. Change Log
+
+| Version | Date | Summary |
+|---|---|---|
+| 1.0 | 2026-05-26 | Initial release |
+| 1.1 | 2026-05-26 | AMENDMENT-001: Profile commands |
+| 1.2 | 2026-05-26 | AMENDMENT-002: `/start` onboarding, `/new` session lifecycle, `go-telegram/bot` library, UX-001 typing indicator stop condition |
+
+## 12. Related Specifications / Further Reading
 
 - [SPEC-001: Persistent Memory Management](./SPEC-001-memory-management.md)
 - [SPEC-002: Agent Provider & LLM Orchestration](./SPEC-002-agent-provider.md)
 - [Telegram Bot API Documentation](https://core.telegram.org/bots/api)
+- [go-telegram/bot Documentation](https://github.com/go-telegram/bot)
