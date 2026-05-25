@@ -76,7 +76,7 @@ func (gs *GitSync) Start(ctx context.Context) error {
 
 	// Recursive watch
 	if err := gs.watchRecursive(watcher, dir); err != nil {
-		watcher.Close()
+		_ = watcher.Close()
 		return fmt.Errorf("failed to watch directory: %w", err)
 	}
 
@@ -88,7 +88,7 @@ func (gs *GitSync) Start(ctx context.Context) error {
 }
 
 func (gs *GitSync) watchLoop(ctx context.Context, watcher *fsnotify.Watcher) {
-	defer watcher.Close()
+	defer func() { _ = watcher.Close() }()
 
 	for {
 		select {

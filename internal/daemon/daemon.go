@@ -100,7 +100,7 @@ func (d *Daemon) watchConfig() {
 		d.logger.Error("failed to create config watcher", "error", err)
 		return
 	}
-	defer watcher.Close()
+	defer func() { _ = watcher.Close() }()
 
 	if err := watcher.Add(filepath.Dir(d.configPath)); err != nil {
 		d.logger.Error("failed to watch config directory", "error", err)

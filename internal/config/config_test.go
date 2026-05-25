@@ -35,8 +35,8 @@ func TestInitConfig_Env(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfgPath := filepath.Join(tmpDir, "config.json")
 
-	os.Setenv("SBCTL_LOG_LEVEL", "debug")
-	defer os.Unsetenv("SBCTL_LOG_LEVEL")
+	_ = os.Setenv("SBCTL_LOG_LEVEL", "debug")
+	defer func() { _ = os.Unsetenv("SBCTL_LOG_LEVEL") }()
 
 	err := initConfig(cfgPath)
 	if err != nil {
@@ -53,15 +53,15 @@ func TestVaultConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfgPath := filepath.Join(tmpDir, "config.json")
 
-	os.Setenv("SBCTL_VAULT_DIR", "/tmp/vault")
-	os.Setenv("SBCTL_VAULT_USER_NAME", "John Doe")
-	os.Setenv("SBCTL_VAULT_USER_EMAIL", "john@example.com")
-	os.Setenv("SBCTL_VAULT_GIT_REPOSITORY", "git@github.com:user/repo.git")
+	_ = os.Setenv("SBCTL_VAULT_DIR", "/tmp/vault")
+	_ = os.Setenv("SBCTL_VAULT_USER_NAME", "John Doe")
+	_ = os.Setenv("SBCTL_VAULT_USER_EMAIL", "john@example.com")
+	_ = os.Setenv("SBCTL_VAULT_GIT_REPOSITORY", "git@github.com:user/repo.git")
 	defer func() {
-		os.Unsetenv("SBCTL_VAULT_DIR")
-		os.Unsetenv("SBCTL_VAULT_USER_NAME")
-		os.Unsetenv("SBCTL_VAULT_USER_EMAIL")
-		os.Unsetenv("SBCTL_VAULT_GIT_REPOSITORY")
+		_ = os.Unsetenv("SBCTL_VAULT_DIR")
+		_ = os.Unsetenv("SBCTL_VAULT_USER_NAME")
+		_ = os.Unsetenv("SBCTL_VAULT_USER_EMAIL")
+		_ = os.Unsetenv("SBCTL_VAULT_GIT_REPOSITORY")
 	}()
 
 	err := initConfig(cfgPath)

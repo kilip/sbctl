@@ -15,7 +15,7 @@ func TestBootstrapDaemon(t *testing.T) {
 	configPath := filepath.Join(configDir, "config.json")
 
 	// Ensure cleanup
-	defer os.RemoveAll(configDir)
+	defer func() { _ = os.RemoveAll(configDir) }()
 
 	// Create a dummy config file
 	if err := os.MkdirAll(configDir, 0755); err != nil {
