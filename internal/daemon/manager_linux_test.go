@@ -3,7 +3,6 @@
 package daemon
 
 import (
-	"os"
 	"runtime"
 	"testing"
 )
@@ -13,9 +12,7 @@ func TestLinuxManager(t *testing.T) {
 		t.Skip("skipping linux-only test")
 	}
 	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	t.Setenv("HOME", tmpDir)
 
 	lm := &LinuxManager{}
 	err := lm.Install("/usr/local/bin/sbctl")

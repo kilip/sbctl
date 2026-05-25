@@ -174,7 +174,7 @@ func TestUpgrade_LatestAlready(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, `{"tag_name": "v1.0.0", "assets": []}`)
+		_, _ = fmt.Fprintln(w, `{"tag_name": "v1.0.0", "assets": []}`)
 	}))
 	defer server.Close()
 
@@ -210,7 +210,7 @@ func TestUpgrade_APIErrors(t *testing.T) {
 
 	// Test bad JSON response
 	serverJSON := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, `{bad-json`)
+		_, _ = fmt.Fprintln(w, `{bad-json`)
 	}))
 	defer serverJSON.Close()
 	apiURL = serverJSON.URL
@@ -230,7 +230,7 @@ func TestUpgrade_NoSuitableAsset(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, `{"tag_name": "v1.2.0", "assets": [{"name": "sbctl-1.2.0-otheros-otherarch.tar.gz", "browser_download_url": "http://example.com"}]}`)
+		_, _ = fmt.Fprintln(w, `{"tag_name": "v1.2.0", "assets": [{"name": "sbctl-1.2.0-otheros-otherarch.tar.gz", "browser_download_url": "http://example.com"}]}`)
 	}))
 	defer server.Close()
 
@@ -283,7 +283,7 @@ func TestUpgrade_Success(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"tag_name": "v1.2.0", "assets": [{"name": "sbctl-1.2.0-%s-%s.zip", "browser_download_url": "http://%s/download"}]}`,
+		_, _ = fmt.Fprintf(w, `{"tag_name": "v1.2.0", "assets": [{"name": "sbctl-1.2.0-%s-%s.zip", "browser_download_url": "http://%s/download"}]}`,
 			runtime.GOOS, runtime.GOARCH, r.Host)
 	}))
 	defer server.Close()
