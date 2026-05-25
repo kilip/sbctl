@@ -10,6 +10,10 @@ import (
 	"github.com/kilip/sbctl/internal/daemon"
 )
 
+var runWizardForm = func(form *huh.Form) error {
+	return form.Run()
+}
+
 var (
 	// Gem Palette
 	colorGem   = lipgloss.Color("#8839ef") // Mauve/Purple
@@ -106,7 +110,7 @@ func RunWizard() error {
 		),
 	).WithTheme(theme)
 
-	if err := form.Run(); err != nil {
+	if err := runWizardForm(form); err != nil {
 		return err
 	}
 

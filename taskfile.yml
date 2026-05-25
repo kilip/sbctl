@@ -44,6 +44,18 @@ tasks:
     cmds:
       - go test -v -race ./...
 
+  coverage:
+    desc: Run tests and print statement-by-statement coverage stats
+    cmds:
+      - go test -coverprofile=coverage.out ./internal/...
+      - go tool cover -func=coverage.out
+
+  coverage-html:
+    desc: Run tests and generate HTML coverage report
+    cmds:
+      - go test -coverprofile=coverage.out ./internal/...
+      - go tool cover -html=coverage.out
+
   build:
     desc: Build the binary
     cmds:

@@ -13,10 +13,12 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var ExecCommand = exec.Command
+
 // ConfigureSSH generates a native ED25519 SSH key, uploads it to GitHub, and configures the git repo.
 func ConfigureSSH(configDir, vaultDir, userEmail string) error {
 	// 1. Check gh cli
-	if err := exec.Command("gh", "auth", "status").Run(); err != nil {
+	if err := ExecCommand("gh", "auth", "status").Run(); err != nil {
 		return fmt.Errorf("gh cli not found or not authenticated. Please run 'gh auth login'")
 	}
 
@@ -54,7 +56,7 @@ func ConfigureSSH(configDir, vaultDir, userEmail string) error {
 	title := fmt.Sprintf("sbctl-%s", hostname)
 
 	fmt.Printf("Uploading SSH key to GitHub with title '%s'...\n", title)
-	ghCmd := exec.Command("gh", "ssh-key", "add", pubKeyPath, "--title", title)
+	ghCmd := ExecCommand("gh", "ssh-key", "add", pubKeyPath, "--title", title)
 	if out, err := ghCmd.CombinedOutput(); err != nil {
 		outStr := string(out)
 		if strings.Contains(outStr, "already in use") || strings.Contains(outStr, "already exists") {
@@ -67,7 +69,7 @@ func ConfigureSSH(configDir, vaultDir, userEmail string) error {
 	}
 
 	fmt.Printf("Uploading SSH signing key to GitHub with title '%s'...\n", title+"-signing")
-	ghSigningCmd := exec.Command("gh", "ssh-key", "add", pubKeyPath, "--title", title+"-signing", "--type", "signing")
+	ghSigningCmd := ExecCommand("gh", "ssh-key", "add", pubKeyPath, "--title", title+"-signing", "--type", "signing")
 	if out, err := ghSigningCmd.CombinedOutput(); err != nil {
 		outStr := string(out)
 		if strings.Contains(outStr, "already in use") || strings.Contains(outStr, "already exists") {
@@ -85,7 +87,7 @@ func ConfigureSSH(configDir, vaultDir, userEmail string) error {
 	// Ensure git repo exists before configuring
 	if _, err := os.Stat(filepath.Join(vaultDir, ".git")); os.IsNotExist(err) {
 		fmt.Println("Git repository not found. Initializing...")
-		initCmd := exec.Command("git", "init")
+		initCmd := ExecCommand("git", "init")
 		initCmd.Dir = vaultDir
 		if err := initCmd.Run(); err != nil {
 			return fmt.Errorf("failed to init git repository: %w", err)
@@ -101,7 +103,7 @@ func ConfigureSSH(configDir, vaultDir, userEmail string) error {
 	}
 
 	for _, cfg := range configs {
-		gitCfgCmd := exec.Command("git", "config", cfg[0], cfg[1])
+		gitCfgCmd := ExecCommand("git", "config", cfg[0], cfg[1])
 		gitCfgCmd.Dir = vaultDir
 		if out, err := gitCfgCmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to configure git %s: %w\n%s", cfg[0], err, string(out))

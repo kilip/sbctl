@@ -2,9 +2,13 @@ package config
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/huh"
+	"github.com/kilip/sbctl/internal/gitsync"
 )
 
 func TestInitConfig_DevMode(t *testing.T) {
@@ -136,5 +140,151 @@ func TestSaveConfig(t *testing.T) {
 		if strings.Contains(sContent, field) {
 			t.Errorf("unexpected PascalCase field %s found in config file. Content:\n%s", field, sContent)
 		}
+	}
+}
+
+func TestGetGitSync(t *testing.T) {
+	Reset()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.json")
+
+	err := initConfig(cfgPath)
+	if err != nil {
+		t.Fatalf("initConfig failed: %v", err)
+	}
+
+	cfg := GetConfig()
+	worker := cfg.GetGitSync()
+	if worker == nil {
+		t.Error("expected GetGitSync to return non-nil worker")
+	} else if worker.Name() != "gitsync" {
+		t.Errorf("expected worker name 'gitsync', got %s", worker.Name())
+	}
+}
+
+func TestGetGitSyncSSH(t *testing.T) {
+	Reset()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.json")
+
+	err := initConfig(cfgPath)
+	if err != nil {
+		t.Fatalf("initConfig failed: %v", err)
+	}
+
+	cfg := GetConfig()
+	cfg.Vault.Dir = filepath.Join(tmpDir, "vault")
+	cfg.Vault.UserEmail = "test@example.com"
+
+	// Create mock git directory
+	_ = os.MkdirAll(filepath.Join(cfg.Vault.Dir, ".git"), 0755)
+
+	// Mock gitsync.ExecCommand
+	originalExec := gitsync.ExecCommand
+	defer func() { gitsync.ExecCommand = originalExec }()
+
+	gitsync.ExecCommand = func(command string, args ...string) *exec.Cmd {
+		// Just run a command that exits successfully (like true or echo)
+		return exec.Command("true")
+	}
+
+	err = cfg.GetGitSyncSSH()
+	if err != nil {
+		t.Fatalf("GetGitSyncSSH failed: %v", err)
+	}
+}
+
+func TestInit(t *testing.T) {
+	Reset()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.json")
+
+	err := Init(cfgPath)
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+
+	if GetConfig() == nil {
+		t.Fatal("expected non-nil config after Init")
+	}
+}
+
+func TestRunWizard(t *testing.T) {
+	Reset()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.json")
+
+	err := initConfig(cfgPath)
+	if err != nil {
+		t.Fatalf("initConfig failed: %v", err)
+	}
+
+	// Mock runWizardForm to return nil (simulate successful form entry)
+	originalRunForm := runWizardForm
+	defer func() { runWizardForm = originalRunForm }()
+	runWizardForm = func(form *huh.Form) error {
+		return nil
+	}
+
+	// Capture stdout to prevent cluttering test output
+	oldStdout := os.Stdout
+	defer func() { os.Stdout = oldStdout }()
+	_, wOut, _ := os.Pipe()
+	os.Stdout = wOut
+	defer func() { _ = wOut.Close() }()
+
+	// Mock gitsync.ExecCommand so configuring SSH in wizard doesn't fail
+	originalExec := gitsync.ExecCommand
+	defer func() { gitsync.ExecCommand = originalExec }()
+	gitsync.ExecCommand = func(command string, args ...string) *exec.Cmd {
+		return exec.Command("true")
+	}
+
+	// Call RunWizard
+	err = RunWizard()
+	if err != nil {
+		t.Fatalf("RunWizard failed: %v", err)
+	}
+}
+
+func TestFindProjectRoot_Fail(t *testing.T) {
+	tmpDir := t.TempDir()
+	origWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get wd: %v", err)
+	}
+	defer func() { _ = os.Chdir(origWd) }()
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	_, ok := findProjectRoot()
+	if ok {
+		t.Error("expected findProjectRoot to return false in a temp directory with no go.mod")
+	}
+}
+
+func TestInitConfig_MkdirError(t *testing.T) {
+	Reset()
+	tmpDir := t.TempDir()
+	blockedPath := filepath.Join(tmpDir, "blocked")
+	if err := os.WriteFile(blockedPath, []byte("file"), 0644); err != nil {
+		t.Fatalf("failed to write blocked file: %v", err)
+	}
+
+	err := initConfig(filepath.Join(blockedPath, "config.json"))
+	if err == nil {
+		t.Error("expected error for blocked config directory creation, got nil")
+	}
+}
+
+func TestInitConfig_DirectoryPath(t *testing.T) {
+	Reset()
+	tmpDir := t.TempDir()
+
+	err := initConfig(tmpDir)
+	if err == nil {
+		t.Error("expected error when passing directory path as config file, got nil")
 	}
 }

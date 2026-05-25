@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+var execCommand = exec.Command
+
 // Manager handles service operations (install, uninstall, start, stop, logs).
 type Manager struct {
 	platform   PlatformManager
@@ -125,9 +127,9 @@ func (m *Manager) Logs() error {
 	if runtime.GOOS == "windows" {
 		// Windows doesn't have tail by default, we'll need a different approach later
 		// for now, just print the path or use powershell
-		cmd = exec.Command("powershell", "Get-Content", logPath, "-Wait")
+		cmd = execCommand("powershell", "Get-Content", logPath, "-Wait")
 	} else {
-		cmd = exec.Command("tail", "-f", logPath)
+		cmd = execCommand("tail", "-f", logPath)
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -151,7 +153,7 @@ func (m *Manager) startProcess() error {
 	if m.configFile != "" {
 		args = append(args, "--config", m.configFile)
 	}
-	cmd := exec.Command(binPath, args...)
+	cmd := execCommand(binPath, args...)
 	cmd.Stdout = nil // Will be handled by daemon's setupLogging
 	cmd.Stderr = nil
 

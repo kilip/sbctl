@@ -18,8 +18,10 @@ import (
 
 const (
 	repoName = "kilip/sbctl"
-	apiURL   = "https://api.github.com/repos/" + repoName + "/releases/latest"
 )
+
+var apiURL = "https://api.github.com/repos/" + repoName + "/releases/latest"
+var osExecutable = os.Executable
 
 type githubRelease struct {
 	TagName string        `json:"tag_name"`
@@ -134,7 +136,7 @@ func Upgrade() error {
 	}
 
 	// Replace binary
-	executable, err := os.Executable()
+	executable, err := osExecutable()
 	if err != nil {
 		return fmt.Errorf("failed to get current executable path: %w", err)
 	}

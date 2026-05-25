@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -197,7 +196,7 @@ func (gs *GitSync) Sync() error {
 }
 
 func (gs *GitSync) runGit(args ...string) error {
-	cmd := exec.Command("git", args...)
+	cmd := ExecCommand("git", args...)
 	cmd.Dir = gs.config.Dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git %s failed: %w\nOutput: %s", args[0], err, string(out))
@@ -206,7 +205,7 @@ func (gs *GitSync) runGit(args ...string) error {
 }
 
 func (gs *GitSync) runGitOutput(args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
+	cmd := ExecCommand("git", args...)
 	cmd.Dir = gs.config.Dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

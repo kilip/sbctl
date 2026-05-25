@@ -2,6 +2,7 @@
 
 [![Go Version](https://img.shields.io/github/go-mod/go-version/kilip/sbctl)](https://golang.org/doc/devel/release.html)
 [![License](https://img.shields.io/github/license/kilip/sbctl)](LICENSE)
+[![codecov](https://img.shields.io/codecov/c/github/kilip/sbctl)](https://codecov.io/gh/kilip/sbctl)
 
 **sbctl** is a collection of tools to help your Personal AI Assistant to manage your obsidian long term `Second Brain` vault and projects.
 
