@@ -1,6 +1,6 @@
 ---
 title: SPEC-002: Agent Provider & LLM Orchestration
-version: 1.1
+version: 1.2
 date_created: 2026-05-26
 last_updated: 2026-05-26
 owner: Pak Bos
@@ -22,11 +22,13 @@ The primary objective is to provide a unified interface for consistent, secure, 
 - **ExecuteContext**: A stateful object carrying session history, metadata, and execution state throughout an interaction cycle.
 - **Dangerous Tool**: A tool with destructive potential or broad system access (e.g., `terminal` execution, `write_file`).
 - **HITL (Human-in-the-Loop)**: A workflow requiring explicit human confirmation before executing sensitive actions.
+- **Active Provider**: The LLM provider currently selected by the user via configuration.
 
 ## 3. Requirements, Constraints & Guidelines
 
 - **REQ-001 (Provider Agnosticism)**: The provider interface must remain decoupled from specific transport layers (e.g., Telegram, CLI).
 - **REQ-002 (Contextual Injection)**: Every LLM request must be enriched with relevant long-term memory fragments.
+- **REQ-003 (User-Driven Provider Selection)**: The active LLM provider is determined solely by user preference in the configuration file. The system MUST NOT apply any automatic routing logic (e.g., cost-based, task-based). If no provider is configured, the system must return a descriptive error.
 - **CON-001 (XML-Based Isolation)**: Prefetched memory context must be encapsulated within `<memory-context>` tags to mitigate prompt injection and hallucination.
 - **SEC-001 (Mandatory Approval)**: Execution of "Dangerous Tools" REQUIRES explicit user authorization via the communication interface ([SPEC-003](./SPEC-003-telegram-bot.md)).
 - **GUD-001 (Session Identity)**: Utilize UUID v7 from `ent.Session` ([SPEC-001](./SPEC-001-memory-management.md)) as the primary identifier for execution cycles.
@@ -45,7 +47,33 @@ type Provider interface {
 }
 ```
 
-### 4.2 ExecuteContext *(updated by AMENDMENT-001)*
+### 4.2 Provider Configuration
+
+Provider selection is driven entirely by user configuration. Example config structure:
+
+```json
+{
+  "agent": {
+    "provider": "anthropic",
+    "providers": {
+      "anthropic": {
+        "api_key": "sk-ant-...",
+        "model": "claude-sonnet-4-20250514"
+      },
+      "openai": {
+        "api_key": "sk-...",
+        "model": "gpt-4o"
+      }
+    }
+  }
+}
+```
+
+- `agent.provider` — the active provider name. Must match a key in `agent.providers`.
+- If `agent.provider` is missing or does not match any configured provider, the system MUST fail fast with a descriptive error on startup.
+- No fallback or automatic provider switching is performed at runtime.
+
+### 4.3 ExecuteContext *(updated by AMENDMENT-001)*
 
 ```go
 type ExecuteContext struct {
@@ -56,7 +84,7 @@ type ExecuteContext struct {
 }
 ```
 
-### 4.3 WorkingDir Resolution Logic *(AMENDMENT-001)*
+### 4.4 WorkingDir Resolution Logic *(AMENDMENT-001)*
 
 `WorkingDir` MUST be resolved **once** when `ExecuteContext` is initialised — not on every tool call. Resolution order:
 
@@ -66,24 +94,47 @@ type ExecuteContext struct {
 
 All tools that operate on the filesystem (e.g. `terminal`, `read_file`, `write_file`) MUST use `ExecuteContext.WorkingDir` as their working directory. Relative paths passed by the LLM are resolved against this value.
 
+### 4.5 Tool Classification
+
+Tools are classified into two categories:
+
+| Category | Examples | Behavior |
+|---|---|---|
+| **Safe** | `read_file`, `search_memory`, `list_dir` | Auto-executed; result returned to LLM immediately |
+| **Dangerous** | `terminal`, `write_file`, `delete_file` | Intercepted; message status set to `awaiting_approval`; requires HITL confirmation via [SPEC-003](./SPEC-003-telegram-bot.md) |
+
+> **Note**: The complete tool registry is defined in `internal/agent/tools.go`. Any new tool MUST be explicitly classified as safe or dangerous at registration time. Unclassified tools are treated as **dangerous** by default.
+
+### 4.6 Error Handling & Retry
+
+- **LLM API errors** (5xx, timeout): Retry up to **3 times** with exponential backoff (1s, 2s, 4s). If all retries fail, return an error to the caller.
+- **Tool execution errors**: Log the error, return the error as tool result to the LLM, and let the LLM decide the next action.
+- **Provider not configured**: Fail fast on startup — no retry.
+
 ## 5. Acceptance Criteria
 
-- **AC-001**: Given a user query regarding "Project X", when the system performs prefetch, relevant facts from the `Memory` table must be retrieved and injected into the prompt.
-- **AC-002**: Given a command to delete files (e.g., `rm -rf`), when the agent attempts to invoke the `terminal` tool, the system must intercept execution and set the message status to `Awaiting Approval`.
+- **AC-001**: Given a user query regarding "Project X", when the system performs prefetch, relevant facts from the `Memory` table must be retrieved and injected into the prompt within `<memory-context>` tags.
+- **AC-002**: Given a command to delete files (e.g., `rm -rf`), when the agent attempts to invoke the `terminal` tool, the system must intercept execution and set the message status to `awaiting_approval`.
 - **AC-003**: Given an LLM response requesting tool execution, the system must execute non-dangerous tools locally and return the output to the LLM automatically.
-- **AC-004** *(AMENDMENT-001 addendum)*: Given a session with `profile_id` pointing to the `sbctl` profile, the `terminal` tool MUST execute with `working_dir = ~/code/sbctl`.
-- **AC-005** *(AMENDMENT-001 addendum)*: Given a session with `profile_id = NULL`, the `terminal` tool MUST fall back to the user's default profile `working_dir`.
+- **AC-004** *(AMENDMENT-001)*: Given a session with `profile_id` pointing to the `sbctl` profile, the `terminal` tool MUST execute with `working_dir = ~/code/sbctl`.
+- **AC-005** *(AMENDMENT-001)*: Given a session with `profile_id = NULL`, the `terminal` tool MUST fall back to the user's default profile `working_dir`.
+- **AC-006** *(AMENDMENT-002)*: Given `agent.provider = "anthropic"` in config, the system MUST initialize and use only the Anthropic provider. No automatic switching occurs.
+- **AC-007** *(AMENDMENT-002)*: Given a missing or invalid `agent.provider` value, the system MUST exit on startup with a descriptive error message.
+- **AC-008** *(AMENDMENT-002)*: Given an unclassified tool registration, the system MUST treat it as dangerous and require HITL approval.
 
 ## 6. Test Automation Strategy
 
 - **Mocking**: Implement mock providers to simulate LLM responses and tool-call triggers without external API costs.
 - **Golden Files**: Utilize golden files to validate the structural integrity of dynamically assembled system prompts.
 - **Concurrency**: Verify tool execution safety using the Go race detector during parallel execution tests.
+- **Provider Config Tests**: Validate fail-fast behavior for missing/invalid provider configuration.
 
 ## 7. Rationale & Context
 
 - **XML Tagging**: Modern LLMs (Claude 3.5, GPT-4o) exhibit superior instruction following when data boundaries are explicitly defined via XML-like tags.
 - **Prefetch Strategy**: To optimize context window usage and reduce latency/cost, only relevant memory fragments are injected rather than the entire database.
+- **User-Driven Provider Selection**: Provider routing logic introduces unnecessary complexity and unpredictable behavior. Users know their own cost/capability trade-offs better than the system does. Keeping selection explicit ensures transparency and debuggability.
+- **Dangerous-by-default for unclassified tools**: Failing safe prevents accidental auto-execution of new tools before they are properly reviewed.
 
 ## 8. Dependencies & External Integrations
 
@@ -116,14 +167,36 @@ All tools that operate on the filesystem (e.g. `terminal`, `read_file`, `write_f
 </memory-context>
 ```
 
+### Provider Config Error (Startup)
+```
+Error: agent.provider "openai" is not defined in agent.providers. 
+Please check your configuration file.
+```
+
+### Unclassified Tool Warning
+```
+Warning: tool "new_tool" has no classification. Treating as dangerous. 
+Requires HITL approval before execution.
+```
+
 ## 10. Validation Criteria
 
 - **VAL-001**: Tool invocation metadata accuracy in the `Message` table.
 - **VAL-002**: Verification of state preservation during multi-turn interactions.
 - **VAL-003**: Confirmation of pause/resume logic during HITL approval flows.
 - **VAL-004**: System prompt assembly integrity across different LLM providers.
+- **VAL-005** *(AMENDMENT-002)*: Provider initialization verified against config on startup.
+- **VAL-006** *(AMENDMENT-002)*: Tool classification registry validated at boot — all registered tools must have explicit classification.
 
-## 11. Related Specifications / Further Reading
+## 11. Change Log
+
+| Version | Date | Summary |
+|---|---|---|
+| 1.0 | 2026-05-26 | Initial release |
+| 1.1 | 2026-05-26 | AMENDMENT-001: WorkingDir resolution, ExecuteContext update |
+| 1.2 | 2026-05-26 | AMENDMENT-002: User-driven provider selection (REQ-003), tool classification table, error handling & retry |
+
+## 12. Related Specifications / Further Reading
 
 - [SPEC-001: Persistent Memory Management](./SPEC-001-memory-management.md)
 - [SPEC-003: Telegram Bot Integration](./SPEC-003-telegram-bot.md)
