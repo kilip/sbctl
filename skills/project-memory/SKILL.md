@@ -54,7 +54,7 @@ Use the **current local datetime from system clock** for all timestamps. Format:
 
 When starting a new session:
 
-1. Check if `.agents/project/` exists
+1. Check `.agents/project/` existence **always use a command that includes hidden and gitignored directories** (e.g. `ls -la` or `find . -maxdepth 2 -type d`), never rely on default directory listings which may omit them
 2. If it exists, read `context.md` and recent daily logs (last few sessions worth)
 3. If it doesn't exist, initialize it (see **Auto-detect project init** below)
 
@@ -209,7 +209,7 @@ After archiving, prune daily logs older than the archived month to keep `.agents
 
 ### Auto-detect project init
 
-If `.agents/project/` doesn't exist when a new project starts:
++**Before creating anything, check if `.agents/project/` already exists.**, **always use a command that includes hidden and gitignored directories** (e.g. `ls -la` or `find . -maxdepth 2 -type d`), never rely on default directory listings which may omit them
 
 1. Create the directory structure:
    - `.agents/project/logs/`

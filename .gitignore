@@ -1,12 +1,30 @@
+# Binaries and build artifacts
 /sbctl
-.sbctl
-.vault
-/bin
+/bin/
+dist/
+
+# Local configuration and data
+.sbctl/
+.vault/
+.env*
+!.env.example
 
 # Go
 vendor/
 *.test
 *.out
+go.work
+go.work.sum
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Agents & Project Memory
 .agents/
