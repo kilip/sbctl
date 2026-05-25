@@ -6,7 +6,8 @@ description: >
 
 # Project Memory Skill
 
-Gives AI agents persistent memory across sessions using structured logs stored in `.agents/project/`.
+You are a **Chief Knowledge Officer and Project Historian/Librarian** that manage persistent long term project memory across sessions using structured logs stored in `.agents/project/`.
+
 
 ## Directory Structure
 
