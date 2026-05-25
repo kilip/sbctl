@@ -38,14 +38,14 @@ func GetConfig() *Config {
 	return instance
 }
 
-func isDevMode() bool {
+func findProjectRoot() (string, bool) {
 	dir, err := os.Getwd()
 	if err != nil {
-		return false
+		return "", false
 	}
 	for {
 		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return true
+			return dir, true
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
@@ -53,7 +53,7 @@ func isDevMode() bool {
 		}
 		dir = parent
 	}
-	return false
+	return "", false
 }
 
 func initDefaults() {
@@ -67,10 +67,9 @@ func initConfig(cfgFile string) error {
 	if cfgFile != "" {
 		configPath = cfgFile
 	} else {
-		// Auto-detect dev mode: if go.mod exists in current or parent dirs, use local .sbctl/config.json
-		if isDevMode() {
-			cwd, _ := os.Getwd()
-			configPath = filepath.Join(cwd, ".sbctl", "config.json")
+		// Auto-detect dev mode: if go.mod exists in current or parent dirs, use testdata/default/config.json
+		if root, ok := findProjectRoot(); ok {
+			configPath = filepath.Join(root, "testdata", "default", "config.json")
 		} else {
 			home, err := os.UserHomeDir()
 			if err != nil {

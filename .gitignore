@@ -4,7 +4,8 @@
 dist/
 
 # Local configuration and data
-.sbctl/
+testdata/default/sbctl.log
+testdata/default/sbctl.pid
 .vault/
 .env*
 !.env.example

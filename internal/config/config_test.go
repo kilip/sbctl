@@ -11,18 +11,18 @@ import (
 func TestInitConfig_DevMode(t *testing.T) {
 	viper.Reset()
 
-	testCwd, _ := os.Getwd()
-	_, errStat := os.Stat("go.mod")
-	t.Logf("CWD: %s, go.mod err: %v", testCwd, errStat)
+	root, ok := findProjectRoot()
+	if !ok {
+		t.Fatal("could not find project root")
+	}
 
-	// initConfig should pick up .sbctl/config.json in CWD because go.mod exists
+	// initConfig should pick up testdata/default/config.json in dev mode
 	err := initConfig("")
 	if err != nil {
 		t.Fatalf("initConfig failed: %v", err)
 	}
-	defer os.RemoveAll(filepath.Join(testCwd, ".sbctl"))
 
-	expected := filepath.Join(testCwd, ".sbctl", "config.json")
+	expected := filepath.Join(root, "testdata", "default", "config.json")
 	if viper.ConfigFileUsed() != expected {
 		t.Errorf("expected %s, got %s", expected, viper.ConfigFileUsed())
 	}
@@ -32,13 +32,13 @@ func TestInitConfig_Env(t *testing.T) {
 	// Reset viper for test
 	viper.Reset()
 
-	testCwd, _ := os.Getwd()
-	defer os.RemoveAll(filepath.Join(testCwd, ".sbctl"))
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.json")
 
 	os.Setenv("SBCTL_LOG_LEVEL", "debug")
 	defer os.Unsetenv("SBCTL_LOG_LEVEL")
 
-	err := initConfig("")
+	err := initConfig(cfgPath)
 	if err != nil {
 		t.Fatalf("initConfig failed: %v", err)
 	}
@@ -50,8 +50,8 @@ func TestInitConfig_Env(t *testing.T) {
 
 func TestVaultConfig(t *testing.T) {
 	viper.Reset()
-	testCwd, _ := os.Getwd()
-	defer os.RemoveAll(filepath.Join(testCwd, ".sbctl"))
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.json")
 
 	os.Setenv("SBCTL_VAULT_DIR", "/tmp/vault")
 	os.Setenv("SBCTL_VAULT_USER_NAME", "John Doe")
@@ -64,7 +64,7 @@ func TestVaultConfig(t *testing.T) {
 		os.Unsetenv("SBCTL_VAULT_GIT_REPOSITORY")
 	}()
 
-	err := initConfig("")
+	err := initConfig(cfgPath)
 	if err != nil {
 		t.Fatalf("initConfig failed: %v", err)
 	}
