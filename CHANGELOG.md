@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/kilip/sbctl/compare/v0.2.3...v0.3.0) (2026-05-26)
+
+
+### Features
+
+* implement SPEC-001 storage & increase coverage ([9dfefee](https://github.com/kilip/sbctl/commit/9dfefeed42f1d389b1081df25d2487f27f1a484e))
+
 ## [0.2.3](https://github.com/kilip/sbctl/compare/v0.2.2...v0.2.3) (2026-05-25)
 
 
