@@ -1,6 +1,8 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/kilip/sbctl/internal/gitsync"
+	"github.com/spf13/viper"
 )
 
 func TestInitConfig_DevMode(t *testing.T) {
@@ -286,5 +289,130 @@ func TestInitConfig_DirectoryPath(t *testing.T) {
 	err := initConfig(tmpDir)
 	if err == nil {
 		t.Error("expected error when passing directory path as config file, got nil")
+	}
+}
+
+func TestInitConfig_InvalidJSON(t *testing.T) {
+	Reset()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.json")
+	if err := os.WriteFile(cfgPath, []byte("invalid-json{"), 0644); err != nil {
+		t.Fatalf("failed to write invalid json: %v", err)
+	}
+
+	err := initConfig(cfgPath)
+	if err == nil {
+		t.Error("expected error for invalid config file json, got nil")
+	}
+}
+
+func TestEnsureSchema(t *testing.T) {
+	Reset()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.json")
+
+	// 1. Config path is empty
+	cfg := &Config{v: viper.New()}
+	if err := cfg.ensureSchema(); err != nil {
+		t.Errorf("expected no error for empty config path, got %v", err)
+	}
+
+	// 2. Config file does not exist
+	cfg.v.SetConfigFile(cfgPath)
+	if err := cfg.ensureSchema(); err != nil {
+		t.Errorf("expected no error for non-existent config file, got %v", err)
+	}
+
+	// 3. Config file contains invalid JSON
+	if err := os.WriteFile(cfgPath, []byte("invalid"), 0644); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+	if err := cfg.ensureSchema(); err != nil {
+		t.Errorf("expected no error for invalid JSON content in ensureSchema, got %v", err)
+	}
+
+	// 4. Config file already has $schema
+	validWithSchema := `{"$schema": "some-url", "vault": {}}`
+	if err := os.WriteFile(cfgPath, []byte(validWithSchema), 0644); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+	if err := cfg.ensureSchema(); err != nil {
+		t.Errorf("expected no error when $schema already exists, got %v", err)
+	}
+
+	// 5. Config file does not have $schema - injects it
+	validWithoutSchema := `{"vault": {}}`
+	if err := os.WriteFile(cfgPath, []byte(validWithoutSchema), 0644); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+	if err := cfg.ensureSchema(); err != nil {
+		t.Errorf("expected no error during schema injection, got %v", err)
+	}
+
+	// Verify $schema was injected
+	content, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("failed to read config: %v", err)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(content, &m); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+	if m["$schema"] != SchemaURL {
+		t.Errorf("expected injected schema %s, got %v", SchemaURL, m["$schema"])
+	}
+}
+
+func TestRunWizard_FormError(t *testing.T) {
+	Reset()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "config.json")
+	err := initConfig(cfgPath)
+	if err != nil {
+		t.Fatalf("initConfig failed: %v", err)
+	}
+
+	originalRunForm := runWizardForm
+	defer func() { runWizardForm = originalRunForm }()
+	runWizardForm = func(form *huh.Form) error {
+		return fmt.Errorf("form cancelled")
+	}
+
+	oldStdout := os.Stdout
+	defer func() { os.Stdout = oldStdout }()
+	_, wOut, _ := os.Pipe()
+	os.Stdout = wOut
+	defer func() { _ = wOut.Close() }()
+
+	err = RunWizard()
+	if err == nil {
+		t.Error("expected error from form cancelled, got nil")
+	}
+}
+
+func TestDaemonReload(t *testing.T) {
+	Reset()
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+	if err := os.WriteFile(configPath, []byte(`{"gitsync": {"enabled": true}}`), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+	if err := initConfig(configPath); err != nil {
+		t.Fatalf("initConfig failed: %v", err)
+	}
+	d := BootstrapDaemon()
+	if d == nil {
+		t.Fatal("BootstrapDaemon returned nil")
+	}
+
+	// Trigger reload callback manually to cover the OnReload callback in NewDaemon
+	cfg := GetConfig()
+	cfg.mu.Lock()
+	callbacks := make([]func(*Config), len(cfg.onReload))
+	copy(callbacks, cfg.onReload)
+	cfg.mu.Unlock()
+
+	for _, cb := range callbacks {
+		cb(cfg)
 	}
 }

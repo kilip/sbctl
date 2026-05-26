@@ -145,3 +145,153 @@ func TestGitSync_RemoteSync(t *testing.T) {
 		t.Fatalf("Sync failed: %v", err)
 	}
 }
+
+func TestGitSync_RunGitError(t *testing.T) {
+	gs := NewGitSync(&Config{Dir: "/invalid/dir"})
+	err := gs.runGit("status")
+	if err == nil {
+		t.Error("expected error from runGit on invalid dir, got nil")
+	}
+
+	_, err = gs.runGitOutput("status")
+	if err == nil {
+		t.Error("expected error from runGitOutput on invalid dir, got nil")
+	}
+}
+
+func TestGitSync_StartErrors(t *testing.T) {
+	originalExecCommand := ExecCommand
+	defer func() { ExecCommand = originalExecCommand }()
+
+	tmpDir := t.TempDir()
+
+	// Case 1: runGit("init") fails
+	cfg := &Config{
+		Dir:     tmpDir,
+		Enabled: true,
+	}
+	gs := NewGitSync(cfg)
+
+	ExecCommand = func(name string, args ...string) *exec.Cmd {
+		if name == "git" && len(args) > 0 && args[0] == "init" {
+			return exec.Command("false")
+		}
+		return exec.Command(name, args...)
+	}
+
+	err := gs.Start(context.Background())
+	if err == nil {
+		t.Error("expected error when git init fails, got nil")
+	}
+
+	// Case 2: runGitOutput("remote") fails
+	// First initialize .git directory so it skips init
+	_ = os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755)
+	cfg.GitRepository = "git@github.com:example/repo.git"
+
+	ExecCommand = func(name string, args ...string) *exec.Cmd {
+		if name == "git" && len(args) > 0 && args[0] == "remote" {
+			return exec.Command("false")
+		}
+		return exec.Command(name, args...)
+	}
+
+	err = gs.Start(context.Background())
+	if err == nil {
+		t.Error("expected error when git remote fails, got nil")
+	}
+
+	// Case 3: runGit("remote", "add", ...) fails
+	ExecCommand = func(name string, args ...string) *exec.Cmd {
+		if name == "git" && len(args) > 0 {
+			if args[0] == "remote" && len(args) == 1 {
+				// Success, returns empty output (no origin)
+				return exec.Command("true")
+			}
+			if args[0] == "remote" && len(args) > 1 && args[1] == "add" {
+				return exec.Command("false")
+			}
+		}
+		return exec.Command(name, args...)
+	}
+
+	err = gs.Start(context.Background())
+	if err == nil {
+		t.Error("expected error when remote add fails, got nil")
+	}
+}
+
+func TestGitSync_SyncErrors(t *testing.T) {
+	originalExecCommand := ExecCommand
+	defer func() { ExecCommand = originalExecCommand }()
+
+	tmpDir := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755)
+
+	cfg := &Config{
+		Dir:           tmpDir,
+		Enabled:       true,
+		GitRepository: "git@github.com:example/repo.git",
+	}
+
+	var failCmd string
+	ExecCommand = func(name string, args ...string) *exec.Cmd {
+		if name == "git" && len(args) > 0 {
+			if args[0] == failCmd {
+				return exec.Command("false")
+			}
+			if args[0] == "status" {
+				// return modified status
+				return exec.Command("echo", "M main.go")
+			}
+			if args[0] == "rev-parse" {
+				return exec.Command("echo", "main")
+			}
+		}
+		return exec.Command(name, args...)
+	}
+
+	gs := NewGitSync(cfg)
+
+	// Case 1: git add fails
+	failCmd = "add"
+	err := gs.Sync()
+	if err == nil {
+		t.Error("expected error when git add fails, got nil")
+	}
+
+	// Case 2: git status fails
+	failCmd = "status"
+	err = gs.Sync()
+	if err == nil {
+		t.Error("expected error when git status fails, got nil")
+	}
+
+	// Case 3: git commit fails
+	failCmd = "commit"
+	err = gs.Sync()
+	if err == nil {
+		t.Error("expected error when git commit fails, got nil")
+	}
+
+	// Case 4: git rev-parse fails
+	failCmd = "rev-parse"
+	err = gs.Sync()
+	if err == nil {
+		t.Error("expected error when git rev-parse fails, got nil")
+	}
+
+	// Case 5: git pull fails
+	failCmd = "pull"
+	err = gs.Sync()
+	if err == nil {
+		t.Error("expected error when git pull fails, got nil")
+	}
+
+	// Case 6: git push fails
+	failCmd = "push"
+	err = gs.Sync()
+	if err == nil {
+		t.Error("expected error when git push fails, got nil")
+	}
+}

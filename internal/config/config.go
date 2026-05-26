@@ -22,6 +22,7 @@ type Config struct {
 	Log       LogConfig       `mapstructure:"log" json:"log"`
 	Vault     VaultConfig     `mapstructure:"vault" json:"vault"`
 	GitSync   gitsync.Config  `mapstructure:"gitsync" json:"gitsync"`
+	Db        DbConfig        `mapstructure:"db" json:"db"`
 }
 
 var (
@@ -83,6 +84,7 @@ func initDefaults(v *viper.Viper) {
 	loggerDefaults(v)
 	vaultDefaults(v)
 	gitsyncDefaults(v)
+	dbDefaults(v)
 }
 
 func initConfig(cfgFile string) error {

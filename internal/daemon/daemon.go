@@ -77,7 +77,11 @@ func (d *Daemon) Reload() {
 		d.workerCancel()
 	}
 	var workerCtx context.Context
-	workerCtx, d.workerCancel = context.WithCancel(d.ctx)
+	parentCtx := d.ctx
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+	workerCtx, d.workerCancel = context.WithCancel(parentCtx)
 
 	d.workers = d.workerProvider()
 

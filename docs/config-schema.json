@@ -13,6 +13,9 @@
         },
         "gitsync": {
           "$ref": "#/$defs/Config"
+        },
+        "db": {
+          "$ref": "#/$defs/DbConfig"
         }
       },
       "additionalProperties": false,
@@ -20,7 +23,24 @@
       "required": [
         "log",
         "vault",
-        "gitsync"
+        "gitsync",
+        "db"
+      ]
+    },
+    "DbConfig": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "driver": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "path",
+        "driver"
       ]
     },
     "LogConfig": {
