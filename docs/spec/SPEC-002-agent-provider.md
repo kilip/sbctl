@@ -30,7 +30,7 @@ The primary objective is to provide a unified interface for consistent, secure, 
 - **REQ-002 (Contextual Injection)**: Every LLM request must be enriched with relevant long-term memory fragments.
 - **REQ-003 (User-Driven Provider Selection)**: The active LLM provider is determined solely by user preference in the configuration file. The system MUST NOT apply any automatic routing logic (e.g., cost-based, task-based). If no provider is configured, the system must return a descriptive error.
 - **CON-001 (XML-Based Isolation)**: Prefetched memory context must be encapsulated within `<memory-context>` tags to mitigate prompt injection and hallucination.
-- **SEC-001 (Mandatory Approval)**: Execution of "Dangerous Tools" REQUIRES explicit user authorization via the communication interface ([SPEC-003](./SPEC-003-telegram-bot.md)).
+- **SEC-001 (Mandatory Approval)**: Execution of "Dangerous Tools" REQUIRES explicit user authorization via the communication interface ([SPEC-003](./SPEC-003-gateway.md)).
 - **GUD-001 (Session Identity)**: Utilize UUID v7 from `ent.Session` ([SPEC-001](./SPEC-001-memory-management.md)) as the primary identifier for execution cycles.
 
 ## 4. Interfaces & Data Contracts
@@ -101,7 +101,7 @@ Tools are classified into two categories:
 | Category | Examples | Behavior |
 |---|---|---|
 | **Safe** | `read_file`, `search_memory`, `list_dir` | Auto-executed; result returned to LLM immediately |
-| **Dangerous** | `terminal`, `write_file`, `delete_file` | Intercepted; message status set to `awaiting_approval`; requires HITL confirmation via [SPEC-003](./SPEC-003-telegram-bot.md) |
+| **Dangerous** | `terminal`, `write_file`, `delete_file` | Intercepted; message status set to `awaiting_approval`; requires HITL confirmation via [SPEC-003](./SPEC-003-gateway.md) |
 
 > **Note**: The complete tool registry is defined in `internal/agent/tools.go`. Any new tool MUST be explicitly classified as safe or dangerous at registration time. Unclassified tools are treated as **dangerous** by default.
 
@@ -199,4 +199,4 @@ Requires HITL approval before execution.
 ## 12. Related Specifications / Further Reading
 
 - [SPEC-001: Persistent Memory Management](./SPEC-001-memory-management.md)
-- [SPEC-003: Telegram Bot Integration](./SPEC-003-telegram-bot.md)
+- [SPEC-003: Gateway Interface & Telegram Implementation](./SPEC-003-gateway.md)
